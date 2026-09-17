@@ -121,8 +121,10 @@ def verify_active(target, gateway, attacker_mac, attacker_ip,
     replies = []
 
     def handle_reply(packet):
-        if ARP not in packet:
+        if ARP not in packet or Ether not in packet:
             return
+        if packet[Ether].src.lower() == attacker_mac.lower():
+            return  # skip our own forged packets 
         if packet[ARP].op != 2:
             return
         if packet[ARP].psrc != gateway.ip:
