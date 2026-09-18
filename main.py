@@ -1,3 +1,4 @@
+from lib.shared.helpers import check_root
 import time
 from lib import ARPConfig, ARPPoisoningEngine, list_interfaces
 
@@ -29,4 +30,5 @@ def main():
 
 
 if __name__ == "__main__":
+    check_root()
     main()
