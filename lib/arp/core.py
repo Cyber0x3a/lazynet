@@ -7,7 +7,7 @@ from scapy.all import get_if_hwaddr
 
 from ..shared.arp_resolve import resolve_mac
 from ..shared.constants import IS_WINDOWS
-from ..shared.forwarding import disable_ip_forwarding, enable_ip_forwarding
+from ..shared.forwarding import clear_arp_entry, disable_ip_forwarding, enable_ip_forwarding, pin_gateway_arp
 from ..shared.netinfo import get_interface_ipv4, get_local_ips, get_local_macs
 from .config import HostInfo
 from .helpers import restore_arp_entry
@@ -61,6 +61,9 @@ class ARPPoisoningEngine:
         self.resolve_hosts()
         self.run_safety_check()
 
+        clear_arp_entry(self.gateway.ip)
+        pin_gateway_arp(self.gateway.ip, self.gateway.mac)
+
         enable_ip_forwarding()
         self.forwarding_enabled = True
 
@@ -81,6 +84,8 @@ class ARPPoisoningEngine:
 
         if self.target is not None and self.gateway is not None:
             self.restore_tables()
+
+        clear_arp_entry(self.gateway.ip)
 
         if self.forwarding_enabled:
             disable_ip_forwarding()

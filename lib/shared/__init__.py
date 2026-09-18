@@ -1,9 +1,11 @@
 from .arp_resolve import resolve_mac
 from .forwarding import (
+    clear_arp_entry,
     disable_ip_forwarding,
     enable_ip_forwarding,
     get_forwarding_state,
     is_ip_forwarding_enabled,
+    pin_gateway_arp,
 )
 from .network_interfaces import (
     InterfaceInfo,
@@ -30,6 +32,8 @@ __all__ = [
     "enable_ip_forwarding",
     "get_forwarding_state",
     "is_ip_forwarding_enabled",
+    "clear_arp_entry",
+    "pin_gateway_arp",
     "InterfaceInfo",
     "detect_default_interface",
     "list_interfaces",

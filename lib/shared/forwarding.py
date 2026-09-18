@@ -7,6 +7,24 @@ import subprocess
 from .constants import IS_LINUX, IS_WINDOWS, WIN_REG_PATH, WIN_REG_VALUE
 
 
+def clear_arp_entry(ip):
+    """
+    Delete any ARP entry for ip
+    """
+    if IS_WINDOWS:
+        subprocess.run(["arp", "-d", ip], check=False, capture_output=True)
+
+
+def pin_gateway_arp(gateway_ip, gateway_mac):
+    """Create a static ARP entry for the gateway
+    On Windows Ethernet the NDIS stack processes our own outgoing forged
+    ARP replies as incoming and overwrites our cache for the gateway
+    A static entry is immune to that, so forwarding keeps working
+    """
+    if IS_WINDOWS:
+        subprocess.run(["arp", "-s", gateway_ip, gateway_mac.replace(":", "-")], check=False, capture_output=True)
+
+
 def enable_ip_forwarding():
     """Enable IP forwarding on the current platform"""
     if IS_LINUX:
