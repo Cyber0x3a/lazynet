@@ -19,3 +19,7 @@ __pycache__/
 .trae
 .warp
 .windsurf
+
+node_modules/
+.next/
+web/package-lock.json
