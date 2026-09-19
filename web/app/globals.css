@@ -1,0 +1,180 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
+@import "uplot/dist/uPlot.min.css";
+
+:root {
+  /* ---- surface scale: warm charcoal, layered (never pure black) ---- */
+  --bg: #101012;
+  --surface-0: #131315;
+  --surface-1: #17171a;
+  --surface-2: #1d1d21;
+  --surface-3: #232327;
+
+  /* ---- hairlines ---- */
+  --line: #26262b;
+  --line-strong: #34343a;
+  --line-faint: #1e1e22;
+
+  /* ---- text ---- */
+  --ink: #e8e7e2;
+  --ink-2: #a3a2a4;
+  --ink-3: #63636a;
+  --ink-4: #45454b;
+
+  /* ---- signal accent: phosphor amber ---- */
+  --accent: #f0a92e;
+  --accent-hi: #ffc966;
+  --accent-dim: #8a6420;
+  --accent-ink: #171106;
+
+  /* ---- semantics ---- */
+  --ok: #7fae6a;
+  --ok-dim: #44543c;
+  --danger: #e05d48;
+  --danger-dim: #5c2f29;
+  --warn: #d9a13c;
+
+  /* ---- protocol lane colors (packet log) ---- */
+  --p-tcp: #7fae6a;
+  --p-udp: #5fa8a0;
+  --p-dns: #8a93c9;
+  --p-icmp: #9aa0a6;
+  --p-arp: #f0a92e;
+  --p-other: #5c5c63;
+
+  /* ---- type ---- */
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* ---- shape: instrument corners ---- */
+  --radius: 3px;
+
+  /* ---- density ---- */
+  --unit: 16px;
+  --row-h: 34px;
+  --fs-micro: 10px;
+  --fs-label: 11px;
+  --fs-body: 13px;
+}
+
+[data-density="compact"] {
+  --unit: 10px;
+  --row-h: 27px;
+  --fs-body: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* thin instrument scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface-0);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border: 2px solid var(--surface-0);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-3);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- shared type primitives ---------- */
+.micro {
+  font-size: var(--fs-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1;
+}
+.num {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- motion ---------- */
+@keyframes scanflow {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes tick-pop {
+  0% {
+    transform: scaleY(1.9);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 0.85;
+  }
+}
+
+@keyframes flash-in {
+  from {
+    background: rgba(240, 169, 46, 0.14);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001s !important;
+    transition-duration: 0.001s !important;
+  }
+}
