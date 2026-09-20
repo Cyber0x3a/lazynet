@@ -11,6 +11,7 @@ import sys
 import threading
 
 from . import protocol
+from .forwarding import ForwardingManager
 from .rpc import AgentContext, CommandServer
 from .session import SessionManager
 from .settings import SettingsStore
@@ -78,7 +79,8 @@ def main(argv=None):
         event_log_max=telemetry_cfg.get("event_log_max", 300),
     )
     session = SessionManager(settings, telemetry)
-    context = AgentContext(settings, session, telemetry)
+    forwarding = ForwardingManager(settings, telemetry)
+    context = AgentContext(settings, session, telemetry, forwarding)
 
     command_server = CommandServer(cmd_port, token, context)
     stream_server = StreamServer(
@@ -89,6 +91,7 @@ def main(argv=None):
     telemetry.add_listener("metrics", stream_server.broadcast_metrics)
     telemetry.add_listener("event", stream_server.broadcast_event)
     session.add_listener(stream_server.broadcast_session)
+    forwarding.set_broadcaster(stream_server.broadcast_forwarding)
 
     # ------------------------- run -------------------------
     shutdown_event = threading.Event()
@@ -105,6 +108,11 @@ def main(argv=None):
         telemetry.start()
         command_server.start()
         stream_server.start()
+        # Enable IP forwarding up front when safety.auto_forwarding is on
+        # (failures are logged as warn events inside the manager)
+        forwarding.on_startup()
+        # Let RPC "agent.shutdown" trigger the same clean path as SIGINT
+        context.request_shutdown = request_shutdown
     except Exception as error:
         logger.error("failed to start agent: %s", error)
         telemetry.stop()
@@ -137,6 +145,11 @@ def main(argv=None):
     except Exception:
         logger.exception("error stopping session during shutdown")
     telemetry.log_event("info", "agent.stop", "LazyNet agent shutting down")
+    # Undo IP forwarding only if the agent itself enabled it
+    try:
+        forwarding.shutdown()
+    except Exception:
+        logger.exception("error restoring forwarding state during shutdown")
     stream_server.stop()
     command_server.stop()
     telemetry.stop()

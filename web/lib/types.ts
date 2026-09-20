@@ -105,6 +105,7 @@ export interface Settings {
 export interface ForwardingState {
   strategy: string;
   enabled: boolean;
+  privileged?: boolean;
 }
 
 export interface AgentStatus {

@@ -18,6 +18,7 @@ Commands:
 | cmd | params | data |
 |---|---|---|
 | `agent.ping` | - | `{version, platform, python, scapy, pid, uptime_s}` |
+| `agent.shutdown` | - | `{stopping: true}` (agent exits cleanly right after replying) |
 | `agent.status` | - | `{session: SessionState, forwarding: {strategy, enabled}, settings_version}` |
 | `interfaces.list` | - | `{interfaces: [{name, display_name, ipv4, netmask, mac, is_default, is_usable}]}` |
 | `session.start` | `{target_ip, gateway_ip, direction?, interface?, poison_interval?, verify_timeout?}` | `{session: SessionState}` |
@@ -75,6 +76,12 @@ Client connects, sends one line `{"token": "..."}`. Server replies
 - `{"type": "metrics", "data": MetricTick}` every 1 second
 - `{"type": "event", "data": EventRow}` on each event
 - `{"type": "session", "data": SessionState}` on every session state change
+- `{"type": "forwarding", "data": {strategy, enabled}}` on every IP forwarding state change
+
+The agent enables IP forwarding at startup when `settings.safety.auto_forwarding`
+is true (the default), and re-enables it after a session stops (the engine's own
+stop() disables it). It never disables forwarding on shutdown if it did not enable
+it itself. `forwarding.set` broadcasts the new state to all stream subscribers.
 
 Poison bursts are counted by the sniffer: ARP replies (op=2) whose `hwsrc` is our own
 interface MAC. While a session runs, the agent sniffs traffic related to the target and

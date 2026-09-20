@@ -6,6 +6,7 @@ import { useSessionStore } from "@/lib/session-store";
 import { useSettings } from "@/lib/settings-context";
 import { formatClock } from "@/lib/format";
 import { Button } from "@/components/ui";
+import { SelectField } from "@/components/SelectField";
 import type { InterfaceInfo, SessionState } from "@/lib/types";
 
 export default function SessionControls() {
@@ -131,26 +132,28 @@ export default function SessionControls() {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <label className="micro" htmlFor="sc-iface">interface</label>
-                <select id="sc-iface" value={iface} onChange={(e) => setIface(e.target.value)}
-                  style={{ ...inputStyle, appearance: "auto" }}>
-                  <option value="">auto-detect</option>
-                  {usable.map((i) => (
-                    <option key={i.name} value={i.name}>
-                      {i.display_name} ({i.ipv4})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <label className="micro" htmlFor="sc-dir">direction</label>
-                <select id="sc-dir" value={direction} onChange={(e) => setDirection(e.target.value)}
-                  style={{ ...inputStyle, appearance: "auto" }}>
-                  <option value="two-way">two-way</option>
-                  <option value="one-way">one-way</option>
-                </select>
-              </div>
+              <SelectField
+                label="interface"
+                value={iface || "__auto__"}
+                onChange={(v) => setIface(v === "__auto__" ? "" : v)}
+                placeholder="auto-detect"
+                options={[
+                  { value: "__auto__", label: "auto-detect" },
+                  ...usable.map((i) => ({
+                    value: i.name,
+                    label: `${i.display_name} (${i.ipv4})`,
+                  })),
+                ]}
+              />
+              <SelectField
+                label="direction"
+                value={direction}
+                onChange={setDirection}
+                options={[
+                  { value: "two-way", label: "two-way" },
+                  { value: "one-way", label: "one-way" },
+                ]}
+              />
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

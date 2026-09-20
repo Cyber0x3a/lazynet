@@ -11,6 +11,7 @@ import logging
 import queue
 import socketserver
 import threading
+import time
 
 from . import protocol
 
@@ -165,6 +166,9 @@ class StreamServer:
     def broadcast_session(self, session_state):
         self.hub.broadcast("session", session_state)
 
+    def broadcast_forwarding(self, forwarding_state):
+        self.hub.broadcast("forwarding", forwarding_state)
+
 
 class StreamRequestHandler(socketserver.StreamRequestHandler):
     """Handles one stream connection: auth, hello, then push until EOF"""
@@ -173,10 +177,24 @@ class StreamRequestHandler(socketserver.StreamRequestHandler):
 
     def handle(self):
         server = self.server_context
+        # Wake from rfile.readline at least once per second so the handler
+        # notices client.close() during server shutdown and never parks
+        # forever (keeps agent shutdown fast even with idle subscribers)
         try:
-            greeting = protocol.read_json_line(self.rfile)
-        except (ValueError, OSError, ConnectionError):
+            self.request.settimeout(1.0)
+        except OSError:
             return
+        greeting = None
+        auth_deadline = time.monotonic() + self.timeout
+        while greeting is None:
+            try:
+                greeting = protocol.read_json_line(self.rfile)
+            except TimeoutError:
+                # 1s socket timeout: keep waiting for the auth greeting
+                if time.monotonic() >= auth_deadline:
+                    return
+            except (ValueError, OSError, ConnectionError):
+                return
         if greeting is None:
             return
 
@@ -201,7 +219,10 @@ class StreamRequestHandler(socketserver.StreamRequestHandler):
         try:
             # Park on the socket; when the peer goes away, clean up
             while not client._closed.is_set():
-                line = self.rfile.readline(1024)
+                try:
+                    line = self.rfile.readline(1024)
+                except TimeoutError:
+                    continue  # socket timeout: re-check the closed flag
                 if not line:
                     break
         except (OSError, ConnectionError):

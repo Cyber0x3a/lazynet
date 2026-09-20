@@ -219,68 +219,6 @@ export function Toggle({
   );
 }
 
-const CHEVRON =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23a3a2a4'/%3E%3C/svg%3E\")";
-
-export function Select({
-  value,
-  onChange,
-  options,
-  label,
-  hint,
-  disabled = false,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-  label?: string;
-  hint?: string;
-  disabled?: boolean;
-}) {
-  const id = useId();
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {label && (
-        <label htmlFor={id} className="micro">
-          {label}
-        </label>
-      )}
-      <select
-        id={id}
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          appearance: "none",
-          background: "var(--surface-2)",
-          backgroundImage: CHEVRON,
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "right 10px center",
-          border: "1px solid var(--line-strong)",
-          borderRadius: "var(--radius)",
-          color: "var(--ink)",
-          fontFamily: "var(--font-sans)",
-          fontSize: "var(--fs-body)",
-          padding: "7px 28px 7px 10px",
-          cursor: disabled ? "not-allowed" : "pointer",
-          opacity: disabled ? 0.5 : 1,
-          width: "100%",
-        }}
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      {hint && (
-        <span style={{ fontSize: "var(--fs-label)", color: "var(--ink-3)" }}>
-          {hint}
-        </span>
-      )}
-    </div>
-  );
-}
 export function NumberField({
   value,
   onChange,
@@ -465,4 +403,67 @@ export function useElementSize<T extends HTMLElement>() {
     return () => ro.disconnect();
   }, []);
   return { ref, ...size };
+}
+export function Segmented({
+  value,
+  onChange,
+  options,
+  disabled = false,
+  label,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  disabled?: boolean;
+  label?: string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      style={{
+        display: "inline-flex",
+        border: "1px solid var(--line-strong)",
+        borderRadius: "var(--radius)",
+        background: "var(--surface-2)",
+        padding: 2,
+        gap: 2,
+        opacity: disabled ? 0.45 : 1,
+      }}
+    >
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            disabled={disabled}
+            onClick={() => onChange(o.value)}
+            className="micro"
+            style={{
+              background: active ? "var(--surface-3)" : "transparent",
+              color: active ? "var(--accent)" : "var(--ink-3)",
+              border: "none",
+              borderRadius: 2,
+              padding: "5px 12px",
+              letterSpacing: "0.12em",
+              cursor: disabled ? "not-allowed" : "pointer",
+              transition: "background 120ms, color 120ms",
+              fontWeight: active ? 600 : 500,
+            }}
+            onMouseEnter={(e) => {
+              if (!active && !disabled) e.currentTarget.style.color = "var(--ink-2)";
+            }}
+            onMouseLeave={(e) => {
+              if (!active) e.currentTarget.style.color = "var(--ink-3)";
+            }}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }

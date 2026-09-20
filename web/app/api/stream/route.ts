@@ -8,6 +8,10 @@ const STREAM_PORT = Number(process.env.LAZYNET_STREAM_PORT ?? 7738);
 const TOKEN = process.env.LAZYNET_TOKEN ?? "lazynet-dev";
 
 export async function GET() {
+  // boot the agent on first stream connection (page load) if it is not running
+  const { ensureAgent } = await import("@/lib/agent-process");
+  await ensureAgent();
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({

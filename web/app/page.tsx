@@ -1,9 +1,8 @@
 ﻿"use client";
 
 import { useSessionStore } from "@/lib/session-store";
-import { useSettings } from "@/lib/settings-context";
 import { agentRpc } from "@/lib/agent-client";
-import { Panel, StateTag } from "@/components/ui";
+import { Panel } from "@/components/ui";
 import PacketTable from "@/components/PacketTable";
 import ProtocolBars from "@/components/ProtocolBars";
 import ReadoutRail from "@/components/ReadoutRail";
@@ -12,15 +11,22 @@ import TelemetryChart from "@/components/TelemetryChart";
 import TopologyDiagram from "@/components/TopologyDiagram";
 import VerifyPanel from "@/components/VerifyPanel";
 import EventLog from "@/components/EventLog";
+import { useEffect, useRef, useState, useCallback } from "react";
+
+const ASIDE_MIN = 280;
+const ASIDE_MAX = 640;
+const ASIDE_DEFAULT = 340;
+const LS_KEY = "lazynet.asideWidth";
 
 function ForwardingToggle() {
-  const { status, agentOnline } = useSessionStore();
-  const enabled = status?.forwarding.enabled ?? false;
-  const strategy = status?.forwarding.strategy ?? "";
+  const { forwarding, agentOnline } = useSessionStore();
+  const enabled = forwarding?.enabled ?? false;
+  const strategy = forwarding?.strategy ?? "";
 
   const toggle = async () => {
     if (!agentOnline) return;
     await agentRpc("forwarding.set", { enabled: !enabled });
+    // the agent pushes a "forwarding" stream message with the new state
   };
 
   return (
@@ -29,17 +35,18 @@ function ForwardingToggle() {
       disabled={!agentOnline}
       role="switch"
       aria-checked={enabled}
-      title={strategy || "IP forwarding"}
+      title={strategy ? `${strategy}: click to ${enabled ? "disable" : "enable"} IP forwarding` : "IP forwarding"}
       className="micro"
       style={{
-        background: "transparent",
-        border: "1px solid var(--line)",
+        background: enabled ? "rgba(127,174,106,0.10)" : "transparent",
+        border: `1px solid ${enabled ? "var(--ok-dim)" : "var(--line)"}`,
         borderRadius: "var(--radius)",
         padding: "4px 10px",
         color: enabled ? "var(--ok)" : "var(--ink-3)",
         letterSpacing: "0.12em",
         cursor: agentOnline ? "pointer" : "not-allowed",
         opacity: agentOnline ? 1 : 0.5,
+        transition: "color 150ms, border-color 150ms, background 150ms",
       }}
     >
       forwarding {enabled ? "on" : "off"}
@@ -49,9 +56,52 @@ function ForwardingToggle() {
 
 export default function ConsolePage() {
   const { agentOnline } = useSessionStore();
+  const [asideWidth, setAsideWidth] = useState(ASIDE_DEFAULT);
+  const [dragging, setDragging] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const saved = Number(localStorage.getItem(LS_KEY));
+    if (Number.isFinite(saved) && saved >= ASIDE_MIN && saved <= ASIDE_MAX) {
+      setAsideWidth(saved);
+    }
+  }, []);
+
+  const onDragStart = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    setDragging(true);
+    const startX = e.clientX;
+    const startWidth = asideWidth;
+
+    const onMove = (ev: PointerEvent) => {
+      const delta = startX - ev.clientX; // dragging left grows the aside
+      const next = Math.min(ASIDE_MAX, Math.max(ASIDE_MIN, startWidth + delta));
+      setAsideWidth(next);
+    };
+    const onUp = () => {
+      setDragging(false);
+      setAsideWidth((w) => {
+        localStorage.setItem(LS_KEY, String(w));
+        return w;
+      });
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [asideWidth]);
+
+  const resetWidth = useCallback(() => {
+    setAsideWidth(ASIDE_DEFAULT);
+    localStorage.setItem(LS_KEY, String(ASIDE_DEFAULT));
+  }, []);
 
   return (
-    <div className="console-root">
+    <div
+      ref={rootRef}
+      className="console-root"
+      style={dragging ? { cursor: "col-resize", userSelect: "none" } : undefined}
+    >
       {/* main column */}
       <div className="console-main">
         <Panel
@@ -69,7 +119,7 @@ export default function ConsolePage() {
             <div className="agent-offline-box">
               <span className="micro agent-offline-label">agent offline</span>
               <span className="mono agent-offline-cmd">
-                start the worker: python -m agent
+                the console starts the agent automatically; check the server log
               </span>
             </div>
           )}
@@ -88,8 +138,21 @@ export default function ConsolePage() {
         </Panel>
       </div>
 
+      {/* drag handle */}
+      <div
+        className="aside-handle"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize inspector panel"
+        title="Drag to resize. Double-click to reset."
+        onPointerDown={onDragStart}
+        onDoubleClick={resetWidth}
+      >
+        <span className="aside-handle-grip" />
+      </div>
+
       {/* inspector column */}
-      <aside className="console-aside">
+      <aside className="console-aside" style={{ width: asideWidth }}>
         <Panel title="Verification">
           <VerifyPanel />
         </Panel>
@@ -117,12 +180,34 @@ export default function ConsolePage() {
           min-height: 0;
         }
         .console-aside {
-          width: 340px;
           flex-shrink: 0;
           display: flex;
           flex-direction: column;
           gap: 12px;
           min-height: 0;
+        }
+        .aside-handle {
+          flex-shrink: 0;
+          width: 6px;
+          margin: 0 -7px;
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: col-resize;
+          touch-action: none;
+        }
+        .aside-handle-grip {
+          width: 2px;
+          height: 44px;
+          border-radius: 1px;
+          background: var(--line-strong);
+          transition: background 150ms, height 150ms;
+        }
+        .aside-handle:hover .aside-handle-grip,
+        .aside-handle:active .aside-handle-grip {
+          background: var(--accent);
+          height: 72px;
         }
         .agent-offline-box {
           display: flex;
@@ -144,7 +229,8 @@ export default function ConsolePage() {
         @media (max-width: 1100px) {
           .console-root { flex-direction: column; overflow-y: auto; overflow-x: hidden; }
           .console-main { flex: 0 0 auto; }
-          .console-aside { width: 100%; flex: 0 0 auto; }
+          .console-aside { width: 100% !important; flex: 0 0 auto; }
+          .aside-handle { display: none; }
           .packet-log-panel { min-height: 260px; }
           .telemetry-body { height: 180px; }
         }

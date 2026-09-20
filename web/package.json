@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@radix-ui/react-select": "^2.3.7",
     "next": "^15.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -17,6 +18,7 @@
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "puppeteer-core": "^25.11.0",
     "typescript": "^5.7.0"
   }
 }

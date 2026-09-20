@@ -160,12 +160,15 @@ export default function Header() {
         >
           {agentOnline ? "Agent" : "Agent offline"}
         </span>
-        <span
-          className="micro"
-          style={{ color: connected ? "var(--ink-4)" : "var(--warn)" }}
-        >
-          {connected ? "" : "reconnecting"}
-        </span>
+        {!connected && (
+          <span
+            className="micro"
+            style={{ color: "var(--warn)" }}
+            title="Stream socket reconnecting with backoff"
+          >
+            reconnecting
+          </span>
+        )}
       </div>
     </header>
   );

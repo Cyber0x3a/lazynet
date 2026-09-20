@@ -65,7 +65,7 @@ export default function EventLog() {
               >
                 {e.level.toUpperCase()}
               </span>
-              <span style={{ color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "normal", wordBreak: "break-word" }}>
                 {e.message}
               </span>
             </div>

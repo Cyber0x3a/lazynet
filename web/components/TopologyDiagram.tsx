@@ -2,7 +2,7 @@
 
 import { useSessionStore } from "@/lib/session-store";
 import { useSettings } from "@/lib/settings-context";
-import { formatDuration } from "@/lib/format";
+import { formatCount } from "@/lib/format";
 
 function NodeBox({
   label,
@@ -69,6 +69,40 @@ function NodeBox({
   );
 }
 
+/* ruler graduation ticks along a channel */
+function RulerTicks({ running }: { running: boolean }) {
+  const ticks = 24;
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        top: "50%",
+        transform: "translateY(-50%)",
+        height: 12,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        pointerEvents: "none",
+        opacity: running ? 0.5 : 0.28,
+      }}
+    >
+      {Array.from({ length: ticks }, (_, i) => (
+        <span
+          key={i}
+          style={{
+            width: 1,
+            height: i % 6 === 0 ? 9 : 4,
+            background: running ? "var(--ink-3)" : "var(--line-strong)",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function FlowLane({
   running,
   reverse = false,
@@ -90,20 +124,35 @@ function FlowLane({
       }}
     >
       {running && !reduceMotion && (
-        <span
-          aria-hidden
-          className="flow-packet"
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: 0,
-            width: 18,
-            height: 2,
-            background: "var(--accent-hi)",
-            transform: "translateY(-50%)",
-            animation: `flowslide 1.6s linear infinite ${reverse ? "0.8s" : "0s"}`,
-          }}
-        />
+        <>
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: 0,
+              width: 22,
+              height: 2,
+              background: "var(--accent-hi)",
+              transform: "translateY(-50%)",
+              animation: `flowslide 1.7s linear infinite ${reverse ? "0.9s" : "0s"}`,
+            }}
+          />
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: 0,
+              width: 10,
+              height: 2,
+              background: "var(--accent)",
+              opacity: 0.6,
+              transform: "translateY(-50%)",
+              animation: `flowslide 1.7s linear infinite ${reverse ? "1.3s" : "0.45s"}`,
+            }}
+          />
+        </>
       )}
       <span
         aria-hidden
@@ -120,19 +169,46 @@ function FlowLane({
   );
 }
 
+function ChannelLabel({ left, right, running }: { left: string; right: string; running: boolean }) {
+  return (
+    <div
+      className="micro topo-chanlabel"
+      style={{
+        position: "absolute",
+        left: 2,
+        right: 2,
+        top: -13,
+        display: "flex",
+        justifyContent: "space-between",
+        color: running ? "var(--ink-3)" : "var(--ink-4)",
+        letterSpacing: "0.1em",
+        pointerEvents: "none",
+      }}
+    >
+      <span>{left}</span>
+      <span>{right}</span>
+    </div>
+  );
+}
+
 function LinkChannel({
   running,
   direction,
   reduceMotion,
+  leftIp,
+  rightIp,
 }: {
   running: boolean;
   direction: "two-way" | "one-way";
   reduceMotion: boolean;
+  leftIp: string;
+  rightIp: string;
 }) {
   return (
     <div
       className="topo-channel"
       style={{
+        position: "relative",
         flex: 1,
         display: "flex",
         flexDirection: "column",
@@ -142,6 +218,8 @@ function LinkChannel({
         minWidth: 60,
       }}
     >
+      <ChannelLabel left={leftIp} right={rightIp} running={running} />
+      <RulerTicks running={running} />
       <FlowLane running={running} reduceMotion={reduceMotion} />
       <FlowLane
         running={running && direction === "two-way"}
@@ -152,8 +230,14 @@ function LinkChannel({
   );
 }
 
+function shortIp(ip: string): string {
+  if (!ip) return "";
+  const parts = ip.split(".");
+  return parts.length === 4 ? `.${parts[3]}` : ip;
+}
+
 export default function TopologyDiagram() {
-  const { session } = useSessionStore();
+  const { session, latest } = useSessionStore();
   const { settings } = useSettings();
 
   const running = session.state === "running";
@@ -166,6 +250,10 @@ export default function TopologyDiagram() {
   const gatewayMac = session.gateway?.mac ?? "";
   const attackerIp = session.attacker?.ip ?? "";
   const attackerMac = session.attacker?.mac ?? "";
+
+  const interval = session.config?.poison_interval ?? settings.attack.poison_interval;
+  const bursts = running ? session.poison_bursts : 0;
+  const capPps = running && latest ? latest.cap_packets : 0;
 
   return (
     <div
@@ -180,11 +268,18 @@ export default function TopologyDiagram() {
         alignItems: "center",
         flex: 1,
         minHeight: 108,
+        paddingTop: 10,
       }}
     >
       <NodeBox label="Target" ip={targetIp} mac={targetMac} active={running} danger />
-      <LinkChannel running={running} direction={direction} reduceMotion={reduce} />
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <LinkChannel
+        running={running}
+        direction={direction}
+        reduceMotion={reduce}
+        leftIp={shortIp(targetIp)}
+        rightIp={shortIp(attackerIp)}
+      />
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
         <NodeBox
           label="This machine"
           ip={attackerIp}
@@ -194,61 +289,37 @@ export default function TopologyDiagram() {
           accent
         />
         {running && (
-          <div
-            className="micro"
-            style={{ textAlign: "center", color: "var(--accent)", letterSpacing: "0.2em" }}
-          >
-            {direction === "two-way" ? "TWO-WAY POISON" : "ONE-WAY POISON"}
+          <div className="micro" style={{ display: "flex", gap: 14, color: "var(--accent)", letterSpacing: "0.14em", whiteSpace: "nowrap" }}>
+            <span>{direction === "two-way" ? "TWO-WAY" : "ONE-WAY"}</span>
+            <span style={{ color: "var(--ink-3)" }}>q {interval}s</span>
+            <span style={{ color: "var(--ink-3)" }}>{formatCount(bursts)} bursts</span>
+            <span style={{ color: "var(--ink-3)" }}>{capPps} pkt/s</span>
           </div>
         )}
       </div>
-      <LinkChannel running={running} direction={direction} reduceMotion={reduce} />
+      <LinkChannel
+        running={running}
+        direction={direction}
+        reduceMotion={reduce}
+        leftIp={shortIp(attackerIp)}
+        rightIp={shortIp(gatewayIp)}
+      />
       <NodeBox label="Gateway" ip={gatewayIp} mac={gatewayMac} active={running} />
       <style>{`
         @keyframes flowslide {
           0% { left: 0; opacity: 0; }
           8% { opacity: 1; }
           92% { opacity: 1; }
-          100% { left: calc(100% - 18px); opacity: 0; }
+          100% { left: calc(100% - 22px); opacity: 0; }
         }
         @media (max-width: 1100px) {
           .topo-node { width: 132px !important; padding: 8px 10px !important; }
           .topo-node .topo-ip { font-size: 13px !important; }
           .topo-node .topo-mac { display: none !important; }
           .topo-channel { min-width: 34px !important; padding: 0 3px !important; }
+          .topo-chanlabel { display: none !important; }
         }
       `}</style>
-    </div>
-  );
-}
-
-export function SessionSummaryStrip() {
-  const { session } = useSessionStore();
-  const running = session.state === "running";
-  if (!running || !session.started_at || !session.config) return null;
-  return (
-    <div
-      className="micro"
-      style={{ display: "flex", gap: 18, color: "var(--ink-3)", flexWrap: "wrap" }}
-    >
-      <span>
-        interval{" "}
-        <span className="mono" style={{ color: "var(--ink-2)" }}>
-          {session.config.poison_interval}s
-        </span>
-      </span>
-      <span>
-        bursts{" "}
-        <span className="mono" style={{ color: "var(--ink-2)" }}>
-          {session.poison_bursts}
-        </span>
-      </span>
-      <span>
-        uptime{" "}
-        <span className="mono" style={{ color: "var(--ink-2)" }}>
-          {formatDuration(Date.now() / 1000 - session.started_at)}
-        </span>
-      </span>
     </div>
   );
 }

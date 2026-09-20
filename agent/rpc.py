@@ -1,4 +1,4 @@
-"""Command server: NDJSON request/response over loopback TCP
+﻿"""Command server: NDJSON request/response over loopback TCP
 
 One thread per connection (socketserver.ThreadingTCPServer) Every request
 must carry the auth token all handler exceptions become ok:false responses
@@ -33,6 +33,7 @@ class CommandServer:
         self._handlers = {
             "agent.ping": self._cmd_ping,
             "agent.status": self._cmd_status,
+            "agent.shutdown": self._cmd_agent_shutdown,
             "interfaces.list": self._cmd_interfaces_list,
             "session.start": self._cmd_session_start,
             "session.stop": self._cmd_session_stop,
@@ -119,14 +120,26 @@ class CommandServer:
             "uptime_s": round(time.monotonic() - _STARTED_AT, 3),
         }
 
+    def _cmd_agent_shutdown(self, params):
+        """Ask the agent to shut down cleanly (used by the web console, which
+        owns the agent process). Runs in a thread so the response goes out
+        before the process exits."""
+        request_shutdown = getattr(self.context, "request_shutdown", None)
+        if request_shutdown is None:
+            raise RuntimeError("shutdown is not wired on this agent")
+        threading.Thread(target=request_shutdown, name="agent-shutdown", daemon=True).start()
+        return {"stopping": True}
+
     def _cmd_status(self, params):
         from lib.shared.forwarding import get_forwarding_state
+        from .forwarding import _is_privileged
 
         try:
             forwarding = get_forwarding_state()
         except Exception as error:
             logger.debug("get_forwarding_state failed: %s", error)
             forwarding = {"strategy": "unknown", "enabled": False}
+        forwarding["privileged"] = _is_privileged()
         return {
             "session": self.context.session.get_state(),
             "forwarding": forwarding,
@@ -155,6 +168,9 @@ class CommandServer:
 
     def _cmd_session_stop(self, params):
         self.context.session.stop()
+        # The engine's own stop() disables IP forwarding; put the agent's
+        # auto_forwarding policy back in effect if needed
+        self.context.forwarding.reconcile("post-session reconcile")
         return {"stopped": True}
 
     def _cmd_session_verify(self, params):
@@ -166,27 +182,9 @@ class CommandServer:
         enabled = params.get("enabled")
         if not isinstance(enabled, bool):
             raise ValueError("'enabled' must be a boolean")
-
-        from lib.shared.forwarding import (
-            disable_ip_forwarding,
-            enable_ip_forwarding,
-            get_forwarding_state,
-        )
-
-        if enabled:
-            enable_ip_forwarding()
-        else:
-            disable_ip_forwarding()
-        state = get_forwarding_state()
-        state_str = "enabled" if enabled else "disabled"
-        strategy = state.get("strategy")
-        active = state.get("enabled")
-        self.context.telemetry.log_event(
-            "info",
-            "forwarding.set",
-            f"IP forwarding {state_str} (strategy={strategy}, active={active})",
-        )
-        return state
+        # ForwardingManager applies the change, logs a 'forwarding' event
+        # and broadcasts the new state to stream subscribers
+        return self.context.forwarding.set(enabled)
 
     def _cmd_metrics_snapshot(self, params):
         seconds = params.get("seconds")
@@ -218,6 +216,10 @@ class CommandServer:
             packet_log_max=telemetry_settings.get("packet_log_max"),
             event_log_max=telemetry_settings.get("event_log_max"),
         )
+        # safety.auto_forwarding may have been toggled on: re-enable
+        # forwarding if the effective state is currently disabled
+        # (turning it off leaves the current state untouched)
+        self.context.forwarding.reconcile("config.set auto_forwarding")
         self.context.telemetry.log_event(
             "info", "config.set", f"Settings updated (version {version})"
         )
@@ -230,9 +232,18 @@ class CommandRequestHandler(socketserver.StreamRequestHandler):
     timeout = 30
 
     def handle(self):
+        # 1s socket timeout keeps the daemon handler thread responsive:
+        # it can never park in rfile.readline indefinitely, which would
+        # stall interpreter shutdown if a client stays connected but idle
+        try:
+            self.request.settimeout(1.0)
+        except OSError:
+            return
         while True:
             try:
                 request = protocol.read_json_line(self.rfile)
+            except TimeoutError:
+                continue  # idle client: re-check the socket once a second
             except ValueError as error:
                 if not self._send(protocol.error_response(None, f"bad request: {error}")):
                     return
@@ -262,7 +273,8 @@ class CommandRequestHandler(socketserver.StreamRequestHandler):
 class AgentContext:
     """Bag of shared services handed to the command server"""
 
-    def __init__(self, settings, session, telemetry):
+    def __init__(self, settings, session, telemetry, forwarding):
         self.settings = settings
         self.session = session
         self.telemetry = telemetry
+        self.forwarding = forwarding

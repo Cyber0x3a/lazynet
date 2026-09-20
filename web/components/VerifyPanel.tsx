@@ -5,7 +5,7 @@ import { agentRpc } from "@/lib/agent-client";
 import { useSessionStore } from "@/lib/session-store";
 import { useSettings } from "@/lib/settings-context";
 import { formatClock, timeAgo } from "@/lib/format";
-import { Button, useNow } from "@/components/ui";
+import { Button, Segmented, useNow } from "@/components/ui";
 import type { EventRow } from "@/lib/types";
 
 interface VerifyRecord {
@@ -20,6 +20,7 @@ export default function VerifyPanel() {
   const { settings } = useSettings();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [method, setMethod] = useState<string>("auto");
   const now = useNow(1000);
 
   const sessionRunning = session.state === "running";
@@ -79,22 +80,33 @@ export default function VerifyPanel() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
-      {/* controls */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {/* controls: method segmented control + run */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <Button
           variant="primary"
           disabled={!sessionRunning || running}
-          onClick={() => runVerify("auto")}
-          title={sessionRunning ? "Run passive check, fall back to active probe" : "Start a session first"}
+          onClick={() => runVerify(method)}
+          title={
+            sessionRunning
+              ? method === "auto"
+                ? "Run passive check, fall back to active probe"
+                : `Run a ${method} check now`
+              : "Start a session first"
+          }
         >
           {running ? "Verifying..." : "Run verification"}
         </Button>
-        <Button variant="ghost" disabled={!sessionRunning || running} onClick={() => runVerify("passive")}>
-          passive
-        </Button>
-        <Button variant="ghost" disabled={!sessionRunning || running} onClick={() => runVerify("active")}>
-          active
-        </Button>
+        <Segmented
+          label="Verification method"
+          value={method}
+          onChange={setMethod}
+          disabled={!sessionRunning || running}
+          options={[
+            { value: "auto", label: "auto" },
+            { value: "passive", label: "passive" },
+            { value: "active", label: "active" },
+          ]}
+        />
       </div>
 
       {/* latest result */}

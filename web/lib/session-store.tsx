@@ -12,6 +12,7 @@ import {
 import type {
   AgentStatus,
   EventRow,
+  ForwardingState,
   MetricTick,
   SessionState,
   StreamMessage,
@@ -34,6 +35,7 @@ const EVENT_CAP = 120;
 export interface SessionStoreValue {
   status: AgentStatus | null;
   session: SessionState;
+  forwarding: ForwardingState | null;
   ticks: MetricTick[];
   latest: MetricTick | null;
   events: EventRow[];
@@ -44,6 +46,7 @@ export interface SessionStoreValue {
 const StoreContext = createContext<SessionStoreValue>({
   status: null,
   session: IDLE_SESSION,
+  forwarding: null,
   ticks: [],
   latest: null,
   events: [],
@@ -54,6 +57,7 @@ const StoreContext = createContext<SessionStoreValue>({
 export function SessionStoreProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AgentStatus | null>(null);
   const [session, setSession] = useState<SessionState>(IDLE_SESSION);
+  const [forwarding, setForwarding] = useState<ForwardingState | null>(null);
   const [ticks, setTicks] = useState<MetricTick[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [connected, setConnected] = useState(false);
@@ -94,6 +98,7 @@ export function SessionStoreProvider({ children }: { children: ReactNode }) {
           const data = (msg as { type: "hello"; data: AgentStatus }).data;
           setStatus(data);
           setSession(data.session);
+          setForwarding(data.forwarding);
         } else if (msg.type === "metrics") {
           const tick = (msg as { type: "metrics"; data: MetricTick }).data;
           setTicks((prev) => {
@@ -111,6 +116,10 @@ export function SessionStoreProvider({ children }: { children: ReactNode }) {
           setStatus((prev) =>
             prev ? { ...prev, session: s } : prev
           );
+        } else if ((msg as { type: string }).type === "forwarding") {
+          const f = (msg as unknown as { type: "forwarding"; data: ForwardingState }).data;
+          setForwarding(f);
+          setStatus((prev) => (prev ? { ...prev, forwarding: f } : prev));
         }
       };
 
@@ -142,13 +151,14 @@ export function SessionStoreProvider({ children }: { children: ReactNode }) {
     () => ({
       status,
       session,
+      forwarding,
       ticks,
       latest,
       events,
       connected,
       agentOnline,
     }),
-    [status, session, ticks, latest, events, connected, agentOnline]
+    [status, session, forwarding, ticks, latest, events, connected, agentOnline]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

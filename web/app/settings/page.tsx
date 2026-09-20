@@ -3,13 +3,8 @@
 import { useEffect, useState } from "react";
 import { useSettings } from "@/lib/settings-context";
 import { agentRpc } from "@/lib/agent-client";
-import {
-  Button,
-  NumberField,
-  Panel,
-  Select,
-  Toggle,
-} from "@/components/ui";
+import { Button, NumberField, Panel, Toggle } from "@/components/ui";
+import { SelectField } from "@/components/SelectField";
 import type { InterfaceInfo, Settings } from "@/lib/types";
 
 function deepEqual(a: unknown, b: unknown): boolean {
@@ -132,7 +127,7 @@ export default function SettingsPage() {
   };
 
   const ifaceOptions = [
-    { value: "", label: "auto-detect on session start" },
+    { value: "__auto__", label: "auto-detect on session start" },
     ...interfaces.map((i) => ({
       value: i.name,
       label: `${i.display_name} (${i.ipv4 || "no ipv4"})`,
@@ -171,7 +166,7 @@ export default function SettingsPage() {
             Used as defaults when a session is started. Per-session overrides are set at start time.
           </SectionNote>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <Select
+            <SelectField
               label="Direction"
               hint="two-way poisons both target and gateway caches"
               value={draft.attack.direction}
@@ -246,10 +241,10 @@ export default function SettingsPage() {
             Leave on auto-detect unless the target is reachable through a specific adapter.
           </SectionNote>
           <div style={{ maxWidth: 420 }}>
-            <Select
+            <SelectField
               label="Preferred interface"
-              value={draft.interface.preferred}
-              onChange={(v) => patchDraft(["interface", "preferred"], v)}
+              value={draft.interface.preferred || "__auto__"}
+              onChange={(v) => patchDraft(["interface", "preferred"], v === "__auto__" ? "" : v)}
               options={ifaceOptions}
             />
           </div>
@@ -295,7 +290,7 @@ export default function SettingsPage() {
           <SectionTitle>Console</SectionTitle>
           <SectionNote>Applied immediately after save, local to this console.</SectionNote>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-            <Select
+            <SelectField
               label="Density"
               value={draft.ui.density}
               onChange={(v) => patchDraft(["ui", "density"], v)}
@@ -304,7 +299,7 @@ export default function SettingsPage() {
                 { value: "compact", label: "compact (field)" },
               ]}
             />
-            <Select
+            <SelectField
               label="Time format"
               value={draft.ui.time_format}
               onChange={(v) => patchDraft(["ui", "time_format"], v)}
