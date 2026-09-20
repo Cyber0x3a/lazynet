@@ -34,6 +34,7 @@ class CommandServer:
             "agent.ping": self._cmd_ping,
             "agent.status": self._cmd_status,
             "agent.shutdown": self._cmd_agent_shutdown,
+            "agent.elevate": self._cmd_agent_elevate,
             "interfaces.list": self._cmd_interfaces_list,
             "session.start": self._cmd_session_start,
             "session.stop": self._cmd_session_stop,
@@ -129,6 +130,39 @@ class CommandServer:
             raise RuntimeError("shutdown is not wired on this agent")
         threading.Thread(target=request_shutdown, name="agent-shutdown", daemon=True).start()
         return {"stopping": True}
+
+    def _cmd_agent_elevate(self, params):
+        """Relaunch the agent with admin/root rights, then exit this one.
+
+        Returns {elevating: True} if a UAC/sudo relaunch was kicked off. The
+        current instance shuts down right after replying so the elevated copy
+        can take the same loopback ports; the console adopts it on reconnect.
+        """
+        from . import elevate
+
+        if elevate.is_privileged():
+            return {"elevating": False, "already_privileged": True}
+        if elevate.already_elevated_child():
+            raise RuntimeError("elevation was already attempted this boot")
+        request_shutdown = getattr(self.context, "request_shutdown", None)
+        if request_shutdown is None:
+            raise RuntimeError("shutdown is not wired on this agent")
+
+        cmd_port = self.port
+        stream_port = getattr(self.context, "stream_port", None)
+        if not elevate.relaunch_elevated(cmd_port, stream_port):
+            raise RuntimeError("this platform cannot self-elevate")
+
+        self.context.telemetry.log_event(
+            "info", "agent.elevate", "Elevation requested; relaunching agent with admin/root rights"
+        )
+        # Reply first, then exit so the elevated instance can bind the ports
+        def _deferred_shutdown():
+            time.sleep(0.4)
+            request_shutdown()
+
+        threading.Thread(target=_deferred_shutdown, name="agent-elevate", daemon=True).start()
+        return {"elevating": True}
 
     def _cmd_status(self, params):
         from lib.shared.forwarding import get_forwarding_state

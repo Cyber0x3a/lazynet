@@ -25,18 +25,40 @@ function ForwardingToggle() {
   const enabled = forwarding?.enabled ?? false;
   const strategy = forwarding?.strategy ?? "";
   const privileged = forwarding?.privileged ?? false;
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
 
   const toggle = async () => {
-    if (!agentOnline) return;
+    if (!agentOnline || busy) return;
+    setNote(null);
+
+    // Turning on without privileges: try to elevate the agent first, then
+    // apply. If the user declines, say so instead of silently doing nothing.
+    if (!enabled && !privileged) {
+      setBusy(true);
+      const res = await fetch("/api/agent/elevate", { method: "POST" })
+        .then((r) => r.json())
+        .catch(() => ({ ok: false }));
+      if (!res.ok) {
+        setBusy(false);
+        setNote("elevation declined");
+        return;
+      }
+      // agent restarted elevated; give the stream a moment to resync, then apply
+      await new Promise((r) => setTimeout(r, 800));
+      await agentRpc("forwarding.set", { enabled: true });
+      setBusy(false);
+      return;
+    }
+
     await agentRpc("forwarding.set", { enabled: !enabled });
     // the agent pushes a "forwarding" stream message with the new state
   };
 
-  // Clear, honest tooltip: explain why a click may have no effect
   const title = !agentOnline
     ? "Agent offline"
-    : !privileged
-      ? "IP forwarding needs admin/root: restart the console elevated to change it"
+    : !privileged && !enabled
+      ? "Click to elevate the agent (admin/root) and enable IP forwarding"
       : strategy
         ? `${strategy}: click to ${enabled ? "disable" : "enable"} IP forwarding`
         : "IP forwarding";
@@ -44,29 +66,25 @@ function ForwardingToggle() {
   return (
     <button
       onClick={toggle}
-      disabled={!agentOnline}
+      disabled={!agentOnline || busy}
       role="switch"
       aria-checked={enabled}
-      title={title}
+      title={note ?? title}
       className="micro"
       style={{
         background: enabled ? "rgba(127,174,106,0.10)" : "transparent",
-        border: `1px solid ${enabled ? "var(--ok-dim)" : "var(--line)"}`,
+        border: `1px solid ${note ? "var(--warn)" : enabled ? "var(--ok-dim)" : "var(--line)"}`,
         borderRadius: "var(--radius)",
         padding: "4px 10px",
         color: enabled ? "var(--ok)" : "var(--ink-3)",
         letterSpacing: "0.12em",
-        cursor: agentOnline ? "pointer" : "not-allowed",
+        cursor: agentOnline && !busy ? "pointer" : "not-allowed",
         opacity: agentOnline ? 1 : 0.5,
         transition: "color 150ms, border-color 150ms, background 150ms",
+        whiteSpace: "nowrap",
       }}
     >
-      forwarding {enabled ? "on" : "off"}
-      {agentOnline && !privileged && (
-        <span style={{ color: "var(--warn)", marginLeft: 6 }} title={title}>
-          needs admin
-        </span>
-      )}
+      {busy ? "elevating..." : note ?? `forwarding ${enabled ? "on" : "off"}`}
     </button>
   );
 }

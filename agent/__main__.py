@@ -81,6 +81,7 @@ def main(argv=None):
     session = SessionManager(settings, telemetry)
     forwarding = ForwardingManager(settings, telemetry)
     context = AgentContext(settings, session, telemetry, forwarding)
+    context.stream_port = stream_port
 
     command_server = CommandServer(cmd_port, token, context)
     stream_server = StreamServer(

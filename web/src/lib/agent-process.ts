@@ -13,7 +13,10 @@ interface AgentHandle {
   error: string | null;
 }
 
-const g = globalThis as unknown as { __lazynetAgent?: AgentHandle };
+const g = globalThis as unknown as {
+  __lazynetAgent?: AgentHandle;
+  __lazynetElevating?: number; // epoch ms when elevation handover began
+};
 
 function probe(): Promise<boolean> {
   return new Promise((resolve) => {
@@ -45,6 +48,24 @@ function findPython(repoRoot: string): string {
 export async function ensureAgent(): Promise<AgentHandle> {
   if (g.__lazynetAgent && (g.__lazynetAgent.status === "running" || g.__lazynetAgent.status === "external")) {
     return g.__lazynetAgent;
+  }
+
+  // During an elevation handover the old agent exits and an elevated copy
+  // binds the same ports. Do NOT auto-spawn an unprivileged one meanwhile;
+  // wait for the elevated instance to appear.
+  const elevating = g.__lazynetElevating;
+  if (elevating && Date.now() - elevating < 30000) {
+    const deadline = Date.now() + 30000;
+    while (Date.now() < deadline) {
+      if (await probe()) {
+        g.__lazynetElevating = undefined;
+        g.__lazynetAgent = { child: null, owned: false, status: "external", error: null };
+        return g.__lazynetAgent;
+      }
+      await new Promise((r) => setTimeout(r, 800));
+    }
+    g.__lazynetElevating = undefined;
+    // fall through: elevation failed or was declined, spawn normally
   }
 
   // something already listening? adopt it, do not spawn a duplicate
@@ -133,6 +154,35 @@ export async function ensureAgent(): Promise<AgentHandle> {
   }
 
   console.log("[lazynet] spawned agent (pid " + child.pid + ", python: " + python + ")");
+
+  // If the agent needs admin/root (auto IP forwarding on), request elevation
+  // once in the background. The user gets a UAC/sudo prompt; on success the
+  // elevated agent takes over and forwarding turns on. On decline, a warn
+  // event explains it and the console keeps working unprivileged.
+  void (async () => {
+    try {
+      await new Promise((r) => setTimeout(r, 1600)); // let sockets bind
+      const { rpc } = await import("@/lib/ipc");
+      const status = await rpc<{ forwarding?: { privileged?: boolean } }>(
+        "agent.status",
+        {}
+      );
+      const cfg = await rpc<{ settings?: { safety?: { auto_forwarding?: boolean } } }>(
+        "config.get",
+        {}
+      );
+      const needsElevation =
+        status.forwarding?.privileged === false &&
+        cfg.settings?.safety?.auto_forwarding !== false;
+      if (needsElevation) {
+        console.log("[lazynet] requesting agent elevation (admin/root)");
+        await elevateAgent();
+      }
+    } catch {
+      /* agent offline or status unavailable; leave it */
+    }
+  })();
+
   return handle;
 }
 
@@ -146,4 +196,28 @@ export async function agentInfo() {
     error: handle?.error ?? null,
     alive,
   };
+}
+
+// Ask the agent to relaunch itself elevated (admin/root). The current agent
+// exits during the handover, so we mark the elevation window first to stop
+// ensureAgent from racing it with an unprivileged spawn.
+export async function elevateAgent(): Promise<{ ok: boolean; error?: string }> {
+  const { rpc } = await import("@/lib/ipc");
+  g.__lazynetElevating = Date.now();
+  try {
+    await rpc("agent.elevate", {});
+  } catch {
+    // the agent may have already exited; that is fine, the elevated copy is coming
+  }
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 900));
+    if (await probe()) {
+      g.__lazynetElevating = undefined;
+      g.__lazynetAgent = { child: null, owned: false, status: "external", error: null };
+      return { ok: true };
+    }
+  }
+  g.__lazynetElevating = undefined;
+  return { ok: false, error: "elevation was declined or failed" };
 }

@@ -19,6 +19,7 @@ Commands:
 |---|---|---|
 | `agent.ping` | - | `{version, platform, python, scapy, pid, uptime_s}` |
 | `agent.shutdown` | - | `{stopping: true}` (agent exits cleanly right after replying) |
+| `agent.elevate` | - | `{elevating: true}` (agent relaunches elevated via UAC/sudo, then this instance exits so the elevated copy takes the same ports; console adopts it on reconnect) |
 | `agent.status` | - | `{session: SessionState, forwarding: {strategy, enabled}, settings_version}` |
 | `interfaces.list` | - | `{interfaces: [{name, display_name, ipv4, netmask, mac, is_default, is_usable}]}` |
 | `session.start` | `{target_ip, gateway_ip, direction?, interface?, poison_interval?, verify_timeout?}` | `{session: SessionState}` |

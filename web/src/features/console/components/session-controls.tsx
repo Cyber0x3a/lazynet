@@ -9,7 +9,7 @@ import { Button, SelectField, TextField, inputStyle } from "@/components/ui";
 import type { InterfaceInfo, SessionState } from "@/lib/types";
 
 export default function SessionControls() {
-  const { session, agentOnline } = useSessionStore();
+  const { session, agentOnline, forwarding } = useSessionStore();
   const { settings } = useSettings();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -39,6 +39,22 @@ export default function SessionControls() {
   const start = async () => {
     setBusy(true);
     setError(null);
+
+    // ARP poisoning needs raw sockets (admin/root). Elevate the agent first
+    // if it is running unprivileged; abort with a clear message if declined.
+    if (forwarding && !forwarding.privileged) {
+      const res = await fetch("/api/agent/elevate", { method: "POST" })
+        .then((r) => r.json())
+        .catch(() => ({ ok: false }));
+      if (!res.ok) {
+        setBusy(false);
+        setError("admin/root rights are required to poison the network");
+        return;
+      }
+      // wait for the elevated agent to settle before issuing commands
+      await new Promise((r) => setTimeout(r, 900));
+    }
+
     const params: Record<string, unknown> = {
       target_ip: targetIp.trim(),
       gateway_ip: gatewayIp.trim(),

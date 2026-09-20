@@ -124,25 +124,49 @@ class ForwardingManager:
         return state, True
 
     def set(self, enabled):
-        """Handle the forwarding.set command. Returns the state dict"""
-        return self._apply(bool(enabled), "forwarding.set command")[0]
+        """Handle the forwarding.set command. Returns the state dict.
+
+        When enabling fails for lack of privileges, request elevation (the
+        agent relaunches itself as admin/root) instead of just logging a
+        warning. The caller surfaces 'needs_elevation' so the UI can react.
+        """
+        state, changed = self._apply(bool(enabled), "forwarding.set command")
+        if enabled and not state.get("enabled") and not _is_privileged():
+            state = dict(state)
+            state["needs_elevation"] = True
+        return state
 
     def on_startup(self):
-        """Called once after servers start: honor auto_forwarding"""
+        """Called once after servers start: honor auto_forwarding.
+
+        If privileges are missing, the agent logs intent and relies on the
+        console to issue agent.elevate (which relaunches elevated). Only an
+        already-elevated child that still lacks rights (user declined) logs a
+        plain warning, so the agent does not nag every boot.
+        """
         if not self._auto_forwarding():
             return
-        if not _is_privileged():
-            logger.warning(
-                "auto_forwarding is on but the agent lacks admin/root rights"
-            )
+        if _is_privileged():
+            self._apply(True, "startup auto_forwarding")
+            return
+
+        from . import elevate
+
+        if elevate.already_elevated_child():
+            # Relaunched once already and still no rights: user declined
             self._telemetry.log_event(
                 "warn",
                 "forwarding",
-                "IP forwarding not enabled at startup: run the console as "
-                "administrator/root (or turn off auto forwarding in Settings)",
+                "IP forwarding is off: elevation was declined, so the agent "
+                "is running without admin/root rights.",
             )
             return
-        self._apply(True, "startup auto_forwarding")
+        self._telemetry.log_event(
+            "info",
+            "forwarding",
+            "Requesting administrator/root rights to enable IP forwarding...",
+        )
+        logger.info("auto_forwarding needs elevation; console will call agent.elevate")
 
     def reconcile(self, reason):
         """Re-apply auto_forwarding after session.stop()/config changes.
