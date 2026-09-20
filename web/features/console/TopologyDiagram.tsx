@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useSessionStore } from "@/lib/session-store";
 import { useSettings } from "@/lib/settings-context";

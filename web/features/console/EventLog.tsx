@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useSessionStore } from "@/lib/session-store";
 import { useSettings } from "@/lib/settings-context";
 import { formatClock } from "@/lib/format";
-import { Panel } from "@/components/ui";
+import { Panel } from "@/shared/components";
 import type { EventRow } from "@/lib/types";
 
 const LEVEL_COLOR: Record<EventRow["level"], string> = {

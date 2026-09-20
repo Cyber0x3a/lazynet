@@ -1,11 +1,12 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { agentRpc } from "@/lib/agent-client";
 import { useSessionStore } from "@/lib/session-store";
 import { useSettings } from "@/lib/settings-context";
 import { formatClock, timeAgo } from "@/lib/format";
-import { Button, Segmented, useNow } from "@/components/ui";
+import { Button, Segmented } from "@/shared/components";
+import { useNow } from "@/shared/hooks/useNow";
 import type { EventRow } from "@/lib/types";
 
 interface VerifyRecord {

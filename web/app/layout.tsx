@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { SettingsProvider } from "@/lib/settings-context";
 import { SessionStoreProvider } from "@/lib/session-store";
-import Header from "@/components/Header";
+import Header from "@/features/layout/Header";
 
 export const metadata: Metadata = {
   title: "LazyNet Console",

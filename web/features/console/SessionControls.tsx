@@ -1,12 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { agentRpc } from "@/lib/agent-client";
 import { useSessionStore } from "@/lib/session-store";
 import { useSettings } from "@/lib/settings-context";
 import { formatClock } from "@/lib/format";
-import { Button } from "@/components/ui";
-import { SelectField } from "@/components/SelectField";
+import { Button, SelectField, TextField, inputStyle } from "@/shared/components";
 import type { InterfaceInfo, SessionState } from "@/lib/types";
 
 export default function SessionControls() {
@@ -63,16 +62,6 @@ export default function SessionControls() {
     setBusy(false);
   };
 
-  const inputStyle: React.CSSProperties = {
-    background: "var(--surface-2)",
-    border: "1px solid var(--line-strong)",
-    borderRadius: "var(--radius)",
-    color: "var(--ink)",
-    fontSize: "var(--fs-body)",
-    padding: "7px 10px",
-    width: "100%",
-  };
-
   return (
     <>
       {running ? (
@@ -120,16 +109,8 @@ export default function SessionControls() {
               <span className="micro">arp mitm</span>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <label className="micro" htmlFor="sc-target">target ip</label>
-              <input id="sc-target" className="mono" style={inputStyle} value={targetIp}
-                onChange={(e) => setTargetIp(e.target.value)} placeholder="192.168.1.28" spellCheck={false} autoFocus />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <label className="micro" htmlFor="sc-gateway">gateway ip</label>
-              <input id="sc-gateway" className="mono" style={inputStyle} value={gatewayIp}
-                onChange={(e) => setGatewayIp(e.target.value)} placeholder="192.168.1.1" spellCheck={false} />
-            </div>
+            <TextField label="target ip" value={targetIp} onChange={setTargetIp} placeholder="192.168.1.28" />
+            <TextField label="gateway ip" value={gatewayIp} onChange={setGatewayIp} placeholder="192.168.1.1" />
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <SelectField

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import uPlot from "uplot";
 import { useSessionStore } from "@/lib/session-store";
-import { useElementSize } from "@/components/ui";
+import { useElementSize } from "@/shared/hooks/useElementSize";
 import { formatBytes, formatClock } from "@/lib/format";
 
 const WINDOW_S = 120; // rolling 2 minutes
