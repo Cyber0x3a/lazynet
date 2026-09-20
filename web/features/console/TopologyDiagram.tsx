@@ -33,10 +33,9 @@ function NodeBox({
     <div
       className="topo-node"
       style={{
-        border: `1px solid ${border}`,
+        border: `1px ${empty ? "dashed" : "solid"} ${border}`,
         borderRadius: "var(--radius)",
         background: empty ? "transparent" : "var(--surface-2)",
-        borderStyle: empty ? "dashed" : "solid",
         padding: "10px 12px",
         width: 168,
         display: "flex",

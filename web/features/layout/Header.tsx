@@ -14,7 +14,7 @@ const NAV = [
 
 export default function Header() {
   const pathname = usePathname();
-  const { session, agentOnline, connected } = useSessionStore();
+  const { session, agentOnline, reconnecting } = useSessionStore();
   const now = useNow(1000);
 
   const running = session.state === "running";
@@ -161,11 +161,11 @@ export default function Header() {
         >
           {agentOnline ? "Agent" : "Agent offline"}
         </span>
-        {!connected && (
+        {reconnecting && (
           <span
             className="micro"
             style={{ color: "var(--warn)" }}
-            title="Stream socket reconnecting with backoff"
+            title="Stream link lost; reconnecting with backoff"
           >
             reconnecting
           </span>

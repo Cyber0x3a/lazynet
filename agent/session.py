@@ -20,6 +20,21 @@ STATE_RUNNING = "running"
 STATE_STOPPING = "stopping"
 
 
+def _friendly_interface(scapy_name):
+    """Map a Scapy/NPF interface name to its friendly display name ('Wi-Fi')"""
+    if not scapy_name:
+        return ""
+    try:
+        from lib.shared.network_interfaces import list_interfaces
+
+        for iface in list_interfaces():
+            if iface.name == scapy_name:
+                return iface.display_name
+    except Exception:
+        pass
+    return scapy_name
+
+
 def _start_engine(engine):
     """Start the engine without letting it hijack process signal handlers
 
@@ -100,7 +115,7 @@ class SessionManager:
                     attacker = {
                         "ip": engine.attacker_ip,
                         "mac": engine.attacker_mac,
-                        "interface": engine.config.interface,
+                        "interface": _friendly_interface(engine.config.interface),
                     }
                 config_echo = dict(self._config_echo) if self._config_echo else None
                 started_at = self._started_at

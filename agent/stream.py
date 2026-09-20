@@ -85,15 +85,27 @@ class StreamClient:
             raise ConnectionError("client queue full")
 
     def _writer_loop(self):
+        last_send = 0.0
         while not self._closed.is_set():
             try:
                 message = self._queue.get(timeout=0.5)
             except queue.Empty:
+                message = None
+            if message is None:
+                # heartbeat: keep the link alive through proxies and let the
+                # peer detect a dead socket quickly, even when idle
+                if time.monotonic() - last_send >= 10.0:
+                    if not protocol.write_json_line(
+                        self._sock, protocol.push_message("ping", {"ts": time.time()})
+                    ):
+                        break
+                    last_send = time.monotonic()
+                if self._closed.is_set():
+                    break
                 continue
-            if message is None:  # sentinel
-                break
             if not protocol.write_json_line(self._sock, message):
                 break
+            last_send = time.monotonic()
         self.close()
 
     def close(self):

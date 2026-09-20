@@ -25,6 +25,7 @@ export default function PacketTable() {
   const [packets, setPackets] = useState<PacketRow[]>([]);
   const [total, setTotal] = useState(0);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("ALL");
+  const [search, setSearch] = useState("");
   const [paused, setPaused] = useState(false);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const stickToBottom = useRef(true);
@@ -37,13 +38,17 @@ export default function PacketTable() {
     if (paused || !agentOnline) return;
     const res = await agentRpc<{ packets: PacketRow[]; total: number; dropped: number }>(
       "packets.list",
-      { limit: 250, proto: filter === "ALL" ? undefined : filter }
+      {
+        limit: 250,
+        proto: filter === "ALL" ? undefined : filter,
+        search: search.trim() || undefined,
+      }
     );
     if (res.ok && res.data) {
       setPackets(res.data.packets);
       setTotal(res.data.total);
     }
-  }, [paused, agentOnline, filter]);
+  }, [paused, agentOnline, filter, search]);
 
   useEffect(() => {
     load();
@@ -101,6 +106,25 @@ export default function PacketTable() {
             </button>
           );
         })}
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="filter src / dst / info"
+          aria-label="Filter packets by source, destination or info"
+          spellCheck={false}
+          className="mono"
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--line-strong)",
+            borderRadius: "var(--radius)",
+            color: "var(--ink)",
+            fontSize: "var(--fs-label)",
+            padding: "3px 8px",
+            width: 180,
+            outline: "none",
+          }}
+        />
         <div style={{ flex: 1 }} />
         <span className="micro" style={{ color: "var(--ink-4)" }}>
           {total} captured

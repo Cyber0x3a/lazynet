@@ -24,6 +24,7 @@ function ForwardingToggle() {
   const { forwarding, agentOnline } = useSessionStore();
   const enabled = forwarding?.enabled ?? false;
   const strategy = forwarding?.strategy ?? "";
+  const privileged = forwarding?.privileged ?? false;
 
   const toggle = async () => {
     if (!agentOnline) return;
@@ -31,13 +32,22 @@ function ForwardingToggle() {
     // the agent pushes a "forwarding" stream message with the new state
   };
 
+  // Clear, honest tooltip: explain why a click may have no effect
+  const title = !agentOnline
+    ? "Agent offline"
+    : !privileged
+      ? "IP forwarding needs admin/root: restart the console elevated to change it"
+      : strategy
+        ? `${strategy}: click to ${enabled ? "disable" : "enable"} IP forwarding`
+        : "IP forwarding";
+
   return (
     <button
       onClick={toggle}
       disabled={!agentOnline}
       role="switch"
       aria-checked={enabled}
-      title={strategy ? `${strategy}: click to ${enabled ? "disable" : "enable"} IP forwarding` : "IP forwarding"}
+      title={title}
       className="micro"
       style={{
         background: enabled ? "rgba(127,174,106,0.10)" : "transparent",
@@ -52,6 +62,11 @@ function ForwardingToggle() {
       }}
     >
       forwarding {enabled ? "on" : "off"}
+      {agentOnline && !privileged && (
+        <span style={{ color: "var(--warn)", marginLeft: 6 }} title={title}>
+          needs admin
+        </span>
+      )}
     </button>
   );
 }
