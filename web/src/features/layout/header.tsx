@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSessionStore } from "@/lib/session-store";
-import { StateTag } from "@/shared/components";
-import { useNow } from "@/shared/hooks/useNow";
+import { StateTag } from "@/components/ui";
+import { useNow } from "@/hooks/useNow";
 import { formatDuration, timeAgo } from "@/lib/format";
 
 const NAV = [

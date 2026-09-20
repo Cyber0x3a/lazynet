@@ -5,7 +5,7 @@ import { agentRpc } from "@/lib/agent-client";
 import { useSessionStore } from "@/lib/session-store";
 import { useSettings } from "@/lib/settings-context";
 import { formatClock } from "@/lib/format";
-import { Button, SelectField, TextField, inputStyle } from "@/shared/components";
+import { Button, SelectField, TextField, inputStyle } from "@/components/ui";
 import type { InterfaceInfo, SessionState } from "@/lib/types";
 
 export default function SessionControls() {

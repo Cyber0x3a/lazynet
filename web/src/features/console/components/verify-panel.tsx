@@ -5,8 +5,8 @@ import { agentRpc } from "@/lib/agent-client";
 import { useSessionStore } from "@/lib/session-store";
 import { useSettings } from "@/lib/settings-context";
 import { formatClock, timeAgo } from "@/lib/format";
-import { Button, Segmented } from "@/shared/components";
-import { useNow } from "@/shared/hooks/useNow";
+import { Button, Segmented } from "@/components/ui";
+import { useNow } from "@/hooks/useNow";
 import type { EventRow } from "@/lib/types";
 
 interface VerifyRecord {

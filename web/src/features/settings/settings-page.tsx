@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSettings } from "@/lib/settings-context";
 import { agentRpc } from "@/lib/agent-client";
-import { Button, NumberField, Panel, Toggle, SelectField } from "@/shared/components";
+import { Button, NumberField, Panel, Toggle, SelectField } from "@/components/ui";
 import type { InterfaceInfo, Settings } from "@/lib/types";
 
 function deepEqual(a: unknown, b: unknown): boolean {

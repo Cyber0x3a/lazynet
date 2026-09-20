@@ -2,7 +2,7 @@
 
 import { useSessionStore } from "@/lib/session-store";
 import { agentRpc } from "@/lib/agent-client";
-import { Panel } from "@/shared/components";
+import { Panel } from "@/components/ui";
 import {
   EventLog,
   PacketTable,
@@ -12,7 +12,7 @@ import {
   TelemetryChart,
   TopologyDiagram,
   VerifyPanel,
-} from "./index";
+} from "./index"; // feature-internal barrel
 import { useEffect, useRef, useState, useCallback } from "react";
 
 const ASIDE_MIN = 280;
