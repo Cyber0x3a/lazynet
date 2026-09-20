@@ -31,8 +31,9 @@ function NodeBox({
   const empty = !ip;
   return (
     <div
-      className="topo-node"
+      className={`topo-node${active && !empty ? " topo-node-live" : ""}${accent ? " topo-node-self" : ""}`}
       style={{
+        position: "relative",
         border: `1px ${empty ? "dashed" : "solid"} ${border}`,
         borderRadius: "var(--radius)",
         background: empty ? "transparent" : "var(--surface-2)",
@@ -44,6 +45,20 @@ function NodeBox({
         transition: "border-color 300ms",
       }}
     >
+      {accent && !empty && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 2,
+            background: "var(--accent)",
+            borderRadius: "var(--radius) var(--radius) 0 0",
+          }}
+        />
+      )}
       <span className="micro">{label}</span>
       <span
         className="mono topo-ip"
@@ -263,13 +278,33 @@ export default function TopologyDiagram() {
           : "No active session"
       }
       style={{
+        position: "relative",
         display: "flex",
         alignItems: "center",
         flex: 1,
         minHeight: 108,
         paddingTop: 10,
+        backgroundImage:
+          "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.035) 1px, transparent 0)",
+        backgroundSize: "22px 22px",
       }}
     >
+      {running && (
+        <span
+          className="micro"
+          style={{
+            position: "absolute",
+            top: 6,
+            right: 10,
+            color: "var(--accent)",
+            letterSpacing: "0.18em",
+            opacity: 0.85,
+            pointerEvents: "none",
+          }}
+        >
+          LIVE PATH
+        </span>
+      )}
       <NodeBox label="Target" ip={targetIp} mac={targetMac} active={running} danger />
       <LinkChannel
         running={running}
@@ -310,6 +345,30 @@ export default function TopologyDiagram() {
           8% { opacity: 1; }
           92% { opacity: 1; }
           100% { left: calc(100% - 22px); opacity: 0; }
+        }
+        /* corner ticks on a live node, like a target reticle on an instrument */
+        .topo-node-live::before,
+        .topo-node-live::after {
+          content: "";
+          position: absolute;
+          width: 7px;
+          height: 7px;
+          pointer-events: none;
+        }
+        .topo-node-live::before {
+          top: -3px;
+          left: -3px;
+          border-top: 1px solid var(--accent);
+          border-left: 1px solid var(--accent);
+        }
+        .topo-node-live::after {
+          bottom: -3px;
+          right: -3px;
+          border-bottom: 1px solid var(--accent);
+          border-right: 1px solid var(--accent);
+        }
+        .topo-node-self {
+          box-shadow: 0 0 0 1px rgba(240,169,46,0.08), 0 0 18px rgba(240,169,46,0.06);
         }
         @media (max-width: 1100px) {
           .topo-node { width: 132px !important; padding: 8px 10px !important; }
