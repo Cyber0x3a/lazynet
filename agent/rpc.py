@@ -229,6 +229,7 @@ class CommandServer:
             limit=params.get("limit"),
             proto=params.get("proto"),
             search=params.get("search"),
+            field=params.get("field"),
         )
 
     def _cmd_events_list(self, params):

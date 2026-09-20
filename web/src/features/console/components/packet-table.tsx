@@ -5,6 +5,7 @@ import { agentRpc } from "@/lib/agent-client";
 import { useSessionStore } from "@/lib/session-store";
 import { useSettings } from "@/lib/settings-context";
 import { formatClock } from "@/lib/format";
+import { Combobox } from "@/components/ui/combobox";
 import type { PacketRow } from "@/lib/types";
 
 const PROTO_COLOR: Record<string, string> = {
@@ -26,6 +27,7 @@ export default function PacketTable() {
   const [total, setTotal] = useState(0);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("ALL");
   const [search, setSearch] = useState("");
+  const [searchField, setSearchField] = useState("any");
   const [paused, setPaused] = useState(false);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const stickToBottom = useRef(true);
@@ -42,13 +44,14 @@ export default function PacketTable() {
         limit: 250,
         proto: filter === "ALL" ? undefined : filter,
         search: search.trim() || undefined,
+        field: searchField,
       }
     );
     if (res.ok && res.data) {
       setPackets(res.data.packets);
       setTotal(res.data.total);
     }
-  }, [paused, agentOnline, filter, search]);
+  }, [paused, agentOnline, filter, search, searchField]);
 
   useEffect(() => {
     load();
@@ -106,25 +109,58 @@ export default function PacketTable() {
             </button>
           );
         })}
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="filter src / dst / info"
-          aria-label="Filter packets by source, destination or info"
-          spellCheck={false}
-          className="mono"
-          style={{
-            background: "var(--surface-2)",
-            border: "1px solid var(--line-strong)",
-            borderRadius: "var(--radius)",
-            color: "var(--ink)",
-            fontSize: "var(--fs-label)",
-            padding: "3px 8px",
-            width: 180,
-            outline: "none",
-          }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 8 }}>
+          <Combobox
+            ariaLabel="Search field"
+            value={searchField}
+            onChange={setSearchField}
+            options={[
+              { value: "any", label: "anywhere" },
+              { value: "src", label: "source" },
+              { value: "dst", label: "destination" },
+              { value: "info", label: "info" },
+            ]}
+          />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={
+              searchField === "any" ? "filter packets..." : `filter by ${searchField}...`
+            }
+            aria-label="Filter packets"
+            spellCheck={false}
+            className="mono"
+            style={{
+              background: "var(--surface-2)",
+              border: "1px solid var(--line-strong)",
+              borderRadius: "var(--radius)",
+              color: "var(--ink)",
+              fontSize: "var(--fs-label)",
+              padding: "3px 8px",
+              width: 180,
+              outline: "none",
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              aria-label="Clear filter"
+              className="micro"
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "var(--ink-4)",
+                cursor: "pointer",
+                padding: "0 2px",
+                fontSize: 13,
+                lineHeight: 1,
+              }}
+            >
+              x
+            </button>
+          )}
+        </div>
         <div style={{ flex: 1 }} />
         <span className="micro" style={{ color: "var(--ink-4)" }}>
           {total} captured

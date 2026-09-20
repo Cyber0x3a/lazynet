@@ -6,4 +6,5 @@ export { StateTag } from "./StateTag";
 export { TextField } from "./TextField";
 export { NumberField } from "./NumberField";
 export { SelectField } from "./SelectField";
+export { Combobox } from "./combobox";
 export { inputStyle } from "./fields";

@@ -334,8 +334,12 @@ class TelemetryCollector:
             ticks = [tick for tick in ticks if tick["ts"] >= cutoff]
         return {"series": ticks, "latest": latest}
 
-    def packets_list(self, limit=None, proto=None, search=None):
-        """Bounded packet log with optional protocol/search filters"""
+    def packets_list(self, limit=None, proto=None, search=None, field=None):
+        """Bounded packet log with optional protocol and scoped search filters.
+
+        field scopes the search to 'src', 'dst' or 'info'; None/'any' matches
+        across src, dst, info and proto.
+        """
         with self._lock:
             rows = list(self._packets)
             dropped = self._packets_dropped
@@ -345,14 +349,23 @@ class TelemetryCollector:
             rows = [row for row in rows if row["proto"] == wanted]
         if search:
             needle = str(search).lower()
-            rows = [
-                row
-                for row in rows
-                if needle in row["src"].lower()
-                or needle in row["dst"].lower()
-                or needle in row["info"].lower()
-                or needle in row["proto"].lower()
-            ]
+            field = (field or "any").lower()
+
+            def matches(row):
+                if field == "src":
+                    return needle in row["src"].lower()
+                if field == "dst":
+                    return needle in row["dst"].lower()
+                if field == "info":
+                    return needle in row["info"].lower()
+                return (
+                    needle in row["src"].lower()
+                    or needle in row["dst"].lower()
+                    or needle in row["info"].lower()
+                    or needle in row["proto"].lower()
+                )
+
+            rows = [row for row in rows if matches(row)]
 
         total = len(rows)
         if limit is not None:
