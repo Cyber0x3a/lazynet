@@ -95,6 +95,7 @@ def _linux_forwarding_enabled():
 # ------------------------- Windows -------------------------
 
 def _enable_windows():
+    # Persist across reboots via the registry
     subprocess.run(
         ["reg", "add", WIN_REG_PATH,
          "/v", WIN_REG_VALUE,
@@ -102,9 +103,14 @@ def _enable_windows():
          "/d", "1", "/f"],
         check=False, capture_output=True,
     )
+    # Take effect immediately: per-interface forwarding on every connected
+    # IPv4 interface (netsh "set global forwarding=" no longer exists on
+    # modern Windows; Set-NetIPInterface is the supported switch)
     subprocess.run(
-        ["netsh", "interface", "ipv4", "set", "global",
-         "forwarding=enabled"],
+        ["powershell", "-NoProfile", "-Command",
+         "Get-NetIPInterface -AddressFamily IPv4 | "
+         "Where-Object {$_.ConnectionState -eq 'Connected'} | "
+         "Set-NetIPInterface -Forwarding Enabled"],
         check=False, capture_output=True,
     )
 
@@ -117,22 +123,26 @@ def _disable_windows():
         check=False, capture_output=True,
     )
     subprocess.run(
-        ["netsh", "interface", "ipv4", "set", "global",
-         "forwarding=disabled"],
+        ["powershell", "-NoProfile", "-Command",
+         "Get-NetIPInterface -AddressFamily IPv4 | "
+         "Where-Object {$_.ConnectionState -eq 'Connected'} | "
+         "Set-NetIPInterface -Forwarding Disabled"],
         check=False, capture_output=True,
     )
 
 
 def _windows_forwarding_enabled():
+    # The registry value is the source of truth: it is what we set, and it is
+    # what Windows reads to decide whether the stack routes between interfaces.
+    # (netsh "show global" has no forwarding line on modern Windows, so the
+    # old substring check always matched "Multicast Forwarding: disabled".)
     try:
         result = subprocess.run(
-            ["netsh", "interface", "ipv4", "show", "global"],
+            ["reg", "query", WIN_REG_PATH, "/v", WIN_REG_VALUE],
             check=False, capture_output=True, text=True,
         )
     except Exception:
         return False
-
-    for line in result.stdout.splitlines():
-        if "forwarding" in line.lower():
-            return "enabled" in line.lower()
-    return False
+    if result.returncode != 0:
+        return False  # value deleted = forwarding off
+    return "0x1" in result.stdout.lower()

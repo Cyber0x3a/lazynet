@@ -46,8 +46,12 @@ function findPython(repoRoot: string): string {
 }
 
 export async function ensureAgent(): Promise<AgentHandle> {
-  if (g.__lazynetAgent && (g.__lazynetAgent.status === "running" || g.__lazynetAgent.status === "external")) {
-    return g.__lazynetAgent;
+  const cached = g.__lazynetAgent;
+  if (cached && (cached.status === "running" || cached.status === "external")) {
+    // An "external"/adopted agent can die without us noticing (e.g. it was
+    // shut down over IPC); verify before trusting the cached handle
+    if (await probe()) return cached;
+    g.__lazynetAgent = undefined;
   }
 
   // During an elevation handover the old agent exits and an elevated copy
