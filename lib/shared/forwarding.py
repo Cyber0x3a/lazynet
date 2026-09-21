@@ -94,8 +94,17 @@ def _linux_forwarding_enabled():
 
 # ------------------------- Windows -------------------------
 
+# Interfaces we must NOT toggle forwarding on: virtual / host-only adapters.
+# Enabling forwarding on the ICS hotspot ("Local Area Connection*"), WSL's
+# vEthernet, VPN or loopback adapters breaks ICS NAT and virtual networking,
+# which is exactly what kills the host's and a hotspot client's internet.
+_VIRTUAL_IFACE_PATTERN = (
+    "loopback|vethernet|wsl|hyper-v|local area connection|bluetooth|tap-|vpn|wan miniport"
+)
+
+
 def _enable_windows():
-    # Persist across reboots via the registry
+    # Persist across reboots via the registry (master switch)
     subprocess.run(
         ["reg", "add", WIN_REG_PATH,
          "/v", WIN_REG_VALUE,
@@ -103,14 +112,16 @@ def _enable_windows():
          "/d", "1", "/f"],
         check=False, capture_output=True,
     )
-    # Take effect immediately: per-interface forwarding on every connected
-    # IPv4 interface (netsh "set global forwarding=" no longer exists on
-    # modern Windows; Set-NetIPInterface is the supported switch)
+    # Take effect immediately: per-interface forwarding on physical, connected
+    # interfaces only (netsh "set global forwarding=" no longer exists on
+    # modern Windows; Set-NetIPInterface is the supported switch). Virtual /
+    # ICS / WSL adapters are deliberately excluded so we never disrupt them.
     subprocess.run(
         ["powershell", "-NoProfile", "-Command",
          "Get-NetIPInterface -AddressFamily IPv4 | "
-         "Where-Object {$_.ConnectionState -eq 'Connected'} | "
-         "Set-NetIPInterface -Forwarding Enabled"],
+         "Where-Object {$_.ConnectionState -eq 'Connected' -and "
+         f"$_.InterfaceAlias -notmatch '{_VIRTUAL_IFACE_PATTERN}'"
+         "} | Set-NetIPInterface -Forwarding Enabled"],
         check=False, capture_output=True,
     )
 
@@ -122,10 +133,12 @@ def _disable_windows():
          "/v", WIN_REG_VALUE, "/f"],
         check=False, capture_output=True,
     )
+    # Revert forwarding on every interface that currently has it enabled,
+    # regardless of name, so nothing we turned on is left behind
     subprocess.run(
         ["powershell", "-NoProfile", "-Command",
          "Get-NetIPInterface -AddressFamily IPv4 | "
-         "Where-Object {$_.ConnectionState -eq 'Connected'} | "
+         "Where-Object {$_.Forwarding -eq 'Enabled'} | "
          "Set-NetIPInterface -Forwarding Disabled"],
         check=False, capture_output=True,
     )

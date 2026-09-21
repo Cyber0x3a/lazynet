@@ -1,4 +1,4 @@
-"""Self-elevation: relaunch the agent with admin/root rights.
+"""Self-elevation: relaunch the agent with admin/root rights
 
 When the agent needs privileges it does not have (IP forwarding, raw
 sockets for ARP poisoning), it can relaunch itself elevated. The elevated
@@ -7,7 +7,7 @@ manager adopts it. The current (unprivileged) instance then exits.
 
 Only the local loopback console can trigger this, and only once per boot
 (an elevated instance will not try again, so a declined UAC prompt does
-not loop).
+not loop)
 """
 
 import logging

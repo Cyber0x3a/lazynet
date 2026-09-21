@@ -26,6 +26,7 @@ export function Panel({
         flexDirection: "column",
         minWidth: 0,
         minHeight: 0,
+        overflow: "hidden",
       }}
     >
       {title !== undefined && (

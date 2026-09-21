@@ -115,7 +115,7 @@ export default function TelemetryChart() {
   return (
     <div
       ref={ref}
-      style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
+      style={{ flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
     >
       <div
         style={{
@@ -124,10 +124,15 @@ export default function TelemetryChart() {
           alignItems: "baseline",
           height: 26,
           padding: "0 2px",
+          minWidth: 0,
+          overflow: "hidden",
+          gap: 8,
         }}
       >
-        <span className="micro">bytes / second, rolling 2 min</span>
-        <span className="micro" style={{ letterSpacing: "0.06em", textTransform: "none" }}>
+        <span className="micro" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          bytes / second, rolling 2 min
+        </span>
+        <span className="micro" style={{ letterSpacing: "0.06em", textTransform: "none", whiteSpace: "nowrap", flexShrink: 0 }}>
           <span style={{ color: "var(--accent)" }}>&#9644;</span> intercepted&nbsp;&nbsp;
           <span style={{ color: "var(--ink-3)" }}>&#9644;</span> machine total
         </span>

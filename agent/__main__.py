@@ -9,6 +9,7 @@ import logging
 import signal
 import sys
 import threading
+import time
 
 from . import protocol
 from .forwarding import ForwardingManager
@@ -60,6 +61,27 @@ def configure_logging(level):
     )
 
 
+def _start_with_retry(server, name, attempts=20, delay=0.4):
+    """Start a server, retrying when the port is still busy.
+
+    With allow_reuse_address=False a bind fails while the previous instance's
+    sockets linger in TIME_WAIT (e.g. right after an elevation handover). The
+    port frees within a second or two, so retry briefly before giving up.
+    """
+    for attempt in range(attempts):
+        try:
+            server.start()
+            return
+        except OSError as error:
+            # 10048 / EADDRINUSE = port busy; anything else is a real failure
+            if getattr(error, "winerror", None) not in (10048,) and "in use" not in str(error).lower():
+                raise
+            if attempt == attempts - 1:
+                raise
+            time.sleep(delay)
+    raise RuntimeError(f"could not bind {name} server")
+
+
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.log_level)
@@ -107,8 +129,8 @@ def main(argv=None):
 
     try:
         telemetry.start()
-        command_server.start()
-        stream_server.start()
+        _start_with_retry(command_server, "command")
+        _start_with_retry(stream_server, "stream")
         # Enable IP forwarding up front when safety.auto_forwarding is on
         # (failures are logged as warn events inside the manager)
         forwarding.on_startup()

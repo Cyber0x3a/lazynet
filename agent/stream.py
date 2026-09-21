@@ -143,7 +143,9 @@ class StreamServer:
 
         class _TCPServer(socketserver.ThreadingTCPServer):
             daemon_threads = True
-            allow_reuse_address = True
+            # False on purpose: on Windows SO_REUSEADDR lets a second agent
+            # bind the same port, splitting stream subscribers across processes
+            allow_reuse_address = False
 
         self._server = _TCPServer((protocol.HOST, self.port), _Handler)
         self._thread = threading.Thread(
