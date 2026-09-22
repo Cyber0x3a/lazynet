@@ -133,7 +133,7 @@ class StreamServer:
         self._server = None
         self._thread = None
 
-    # --------------------------- lifecycle ---------------------------
+    # lifecycle
 
     def start(self):
         outer = self
@@ -155,7 +155,7 @@ class StreamServer:
             daemon=True,
         )
         self._thread.start()
-        logger.info("stream server listening on %s:%s", protocol.HOST, self.port)
+        logger.info(f"stream server listening on {protocol.HOST}:{self.port}")
 
     def stop(self):
         self.hub.close_all()
@@ -169,7 +169,7 @@ class StreamServer:
         self._server = None
         self._thread = None
 
-    # --------------------------- broadcast API ---------------------------
+    # broadcast API
 
     def broadcast_metrics(self, tick):
         self.hub.broadcast("metrics", tick)
@@ -228,7 +228,7 @@ class StreamRequestHandler(socketserver.StreamRequestHandler):
         client = StreamClient(self.request, server.hub)
         server.hub.register(client)
         client.start()
-        logger.debug("stream client %s subscribed", self.client_address)
+        logger.debug(f"stream client {self.client_address} subscribed")
 
         try:
             # Park on the socket; when the peer goes away, clean up

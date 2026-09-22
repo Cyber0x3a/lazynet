@@ -20,7 +20,7 @@ STATE_RUNNING = "running"
 STATE_STOPPING = "stopping"
 
 
-def _friendly_interface(scapy_name):
+def friendly_interface(scapy_name):
     """Map a Scapy/NPF interface name to its friendly display name ('Wi-Fi')"""
     if not scapy_name:
         return ""
@@ -35,7 +35,7 @@ def _friendly_interface(scapy_name):
     return scapy_name
 
 
-def _start_engine(engine):
+def start_engine(engine):
     """Start the engine without letting it hijack process signal handlers
 
     ARPPoisoningEngine.start() calls register_cleanup() which installs
@@ -76,7 +76,7 @@ class SessionManager:
 
         self._listeners = []
 
-    # ------------------------- listener wiring -------------------------
+    # listener wiring
 
     def add_listener(self, callback):
         """Register a callback invoked with the SessionState dict on changes."""
@@ -93,7 +93,7 @@ class SessionManager:
             except Exception:
                 logger.exception("session listener failed")
 
-    # ----------------------------- queries -----------------------------
+    # queries
 
     @property
     def state(self):
@@ -115,7 +115,7 @@ class SessionManager:
                     attacker = {
                         "ip": engine.attacker_ip,
                         "mac": engine.attacker_mac,
-                        "interface": _friendly_interface(engine.config.interface),
+                        "interface": friendly_interface(engine.config.interface),
                     }
                 config_echo = dict(self._config_echo) if self._config_echo else None
                 started_at = self._started_at
@@ -140,7 +140,7 @@ class SessionManager:
             "last_verify": last_verify,
         }
 
-    # ----------------------------- start -----------------------------
+    # start
 
     def start(self, params):
         """Start a poisoning session
@@ -201,7 +201,7 @@ class SessionManager:
 
             engine = ARPPoisoningEngine(config)
             try:
-                _start_engine(engine)
+                start_engine(engine)
             except Exception:
                 # start() registers atexit cleanup before doing any work, so a
                 # half started engine still restores anything it changed
@@ -245,7 +245,7 @@ class SessionManager:
                 self._state = STATE_IDLE
             self._telemetry.stop_capture()
             raise
-    # ----------------------------- stop -----------------------------
+    # stop
 
     def stop(self):
         """Stop the running session and restore ARP tables/forwarding
@@ -293,7 +293,7 @@ class SessionManager:
         self._publish()
         return True
 
-    # ----------------------------- verify -----------------------------
+    # verify
 
     def verify(self, method="auto", timeout=None, wait=True):
         """Run engine.verify in a worker thread and return the result dict

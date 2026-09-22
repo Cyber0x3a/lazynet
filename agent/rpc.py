@@ -1,4 +1,4 @@
-﻿"""Command server: NDJSON request/response over loopback TCP
+"""Command server: NDJSON request/response over loopback TCP
 
 One thread per connection (socketserver.ThreadingTCPServer) Every request
 must carry the auth token all handler exceptions become ok:false responses
@@ -31,23 +31,23 @@ class CommandServer:
         self._server = None
         self._thread = None
         self._handlers = {
-            "agent.ping": self._cmd_ping,
-            "agent.status": self._cmd_status,
-            "agent.shutdown": self._cmd_agent_shutdown,
-            "agent.elevate": self._cmd_agent_elevate,
-            "interfaces.list": self._cmd_interfaces_list,
-            "session.start": self._cmd_session_start,
-            "session.stop": self._cmd_session_stop,
-            "session.verify": self._cmd_session_verify,
-            "forwarding.set": self._cmd_forwarding_set,
-            "metrics.snapshot": self._cmd_metrics_snapshot,
-            "packets.list": self._cmd_packets_list,
-            "events.list": self._cmd_events_list,
-            "config.get": self._cmd_config_get,
-            "config.set": self._cmd_config_set,
+            "agent.ping": self.cmd_ping,
+            "agent.status": self.cmd_status,
+            "agent.shutdown": self.cmd_agent_shutdown,
+            "agent.elevate": self.cmd_agent_elevate,
+            "interfaces.list": self.cmd_interfaces_list,
+            "session.start": self.cmd_session_start,
+            "session.stop": self.cmd_session_stop,
+            "session.verify": self.cmd_session_verify,
+            "forwarding.set": self.cmd_forwarding_set,
+            "metrics.snapshot": self.cmd_metrics_snapshot,
+            "packets.list": self.cmd_packets_list,
+            "events.list": self.cmd_events_list,
+            "config.get": self.cmd_config_get,
+            "config.set": self.cmd_config_set,
         }
 
-    # --------------------------- lifecycle ---------------------------
+    # lifecycle
 
     def start(self):
         """Bind and serve in a daemon thread."""
@@ -70,7 +70,7 @@ class CommandServer:
             daemon=True,
         )
         self._thread.start()
-        logger.info("command server listening on %s:%s", protocol.HOST, self.port)
+        logger.info(f"command server listening on {protocol.HOST}:{self.port}")
 
     def stop(self):
         if self._server is None:
@@ -83,7 +83,7 @@ class CommandServer:
         self._server = None
         self._thread = None
 
-    # --------------------------- dispatch ---------------------------
+    # dispatch
 
     def handle_request(self, request):
         """Auth + dispatch one decoded request, always returns a response dict"""
@@ -108,12 +108,12 @@ class CommandServer:
             data = handler(params)
             return protocol.ok_response(request_id, data)
         except Exception as error:
-            logger.exception("command %s failed", cmd)
+            logger.exception(f"command {cmd} failed")
             return protocol.error_response(request_id, str(error))
 
-    # --------------------------- handlers ---------------------------
+    # handlers
 
-    def _cmd_ping(self, params):
+    def cmd_ping(self, params):
         return {
             "version": __version__,
             "platform": platform.system().lower(),
@@ -123,7 +123,7 @@ class CommandServer:
             "uptime_s": round(time.monotonic() - _STARTED_AT, 3),
         }
 
-    def _cmd_agent_shutdown(self, params):
+    def cmd_agent_shutdown(self, params):
         """Ask the agent to shut down cleanly (used by the web console, which
         owns the agent process). Runs in a thread so the response goes out
         before the process exits."""
@@ -133,7 +133,7 @@ class CommandServer:
         threading.Thread(target=request_shutdown, name="agent-shutdown", daemon=True).start()
         return {"stopping": True}
 
-    def _cmd_agent_elevate(self, params):
+    def cmd_agent_elevate(self, params):
         """Relaunch the agent with admin/root rights, then exit this one.
 
         Returns {elevating: True} if a UAC/sudo relaunch was kicked off. The
@@ -166,23 +166,23 @@ class CommandServer:
         threading.Thread(target=_deferred_shutdown, name="agent-elevate", daemon=True).start()
         return {"elevating": True}
 
-    def _cmd_status(self, params):
+    def cmd_status(self, params):
         from lib.shared.forwarding import get_forwarding_state
-        from .forwarding import _is_privileged
+        from .elevate import is_privileged
 
         try:
             forwarding = get_forwarding_state()
         except Exception as error:
-            logger.debug("get_forwarding_state failed: %s", error)
+            logger.debug(f"get_forwarding_state failed: {error}")
             forwarding = {"strategy": "unknown", "enabled": False}
-        forwarding["privileged"] = _is_privileged()
+        forwarding["privileged"] = is_privileged()
         return {
             "session": self.context.session.get_state(),
             "forwarding": forwarding,
             "settings_version": self.context.settings.version,
         }
 
-    def _cmd_interfaces_list(self, params):
+    def cmd_interfaces_list(self, params):
         from lib.shared.network_interfaces import list_interfaces
 
         return {
@@ -199,22 +199,22 @@ class CommandServer:
                 for iface in list_interfaces()
             ]
         }
-    def _cmd_session_start(self, params):
+    def cmd_session_start(self, params):
         return {"session": self.context.session.start(params)}
 
-    def _cmd_session_stop(self, params):
+    def cmd_session_stop(self, params):
         self.context.session.stop()
         # The engine's own stop() disables IP forwarding; put the agent's
         # auto_forwarding policy back in effect if needed
         self.context.forwarding.reconcile("post-session reconcile")
         return {"stopped": True}
 
-    def _cmd_session_verify(self, params):
+    def cmd_session_verify(self, params):
         method = params.get("method", "auto")
         timeout = params.get("timeout")
         return self.context.session.verify(method=method, timeout=timeout, wait=True)
 
-    def _cmd_forwarding_set(self, params):
+    def cmd_forwarding_set(self, params):
         enabled = params.get("enabled")
         if not isinstance(enabled, bool):
             raise ValueError("'enabled' must be a boolean")
@@ -222,11 +222,11 @@ class CommandServer:
         # and broadcasts the new state to stream subscribers
         return self.context.forwarding.set(enabled)
 
-    def _cmd_metrics_snapshot(self, params):
+    def cmd_metrics_snapshot(self, params):
         seconds = params.get("seconds")
         return self.context.telemetry.snapshot(seconds=seconds)
 
-    def _cmd_packets_list(self, params):
+    def cmd_packets_list(self, params):
         return self.context.telemetry.packets_list(
             limit=params.get("limit"),
             proto=params.get("proto"),
@@ -234,14 +234,14 @@ class CommandServer:
             field=params.get("field"),
         )
 
-    def _cmd_events_list(self, params):
+    def cmd_events_list(self, params):
         return self.context.telemetry.events_list(limit=params.get("limit"))
 
-    def _cmd_config_get(self, params):
+    def cmd_config_get(self, params):
         settings, version = self.context.settings.get_with_version()
         return {"settings": settings, "version": version}
 
-    def _cmd_config_set(self, params):
+    def cmd_config_set(self, params):
         patch = params.get("patch")
         if not isinstance(patch, dict):
             raise ValueError("config.set requires a 'patch' object")
@@ -304,7 +304,7 @@ class CommandRequestHandler(socketserver.StreamRequestHandler):
             return False
 
     def handle_timeout(self):
-        logger.debug("command client %s timed out", self.client_address)
+        logger.debug(f"command client {self.client_address} timed out")
 
 
 class AgentContext:

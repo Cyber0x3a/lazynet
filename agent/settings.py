@@ -74,22 +74,22 @@ class SettingsStore:
         self._version = 0
         self.load()
 
-    # ------------------------- persistence -------------------------
+    # persistence
 
     def load(self):
         """Load settings from disk, missing/unreadable file means defaults """
         with self._lock:
             if not os.path.exists(self._path):
-                logger.debug("No settings file at %s, using defaults", self._path)
+                logger.debug(f"No settings file at {self._path}, using defaults")
                 return
             try:
                 with open(self._path, "r", encoding="utf-8") as handle:
                     stored = json.load(handle)
                 if isinstance(stored, dict):
                     self._settings = deep_merge(DEFAULT_SETTINGS, stored)
-                    logger.info("Loaded settings from %s", self._path)
+                    logger.info(f"Loaded settings from {self._path}")
             except (OSError, ValueError) as error:
-                logger.warning("Could not read settings from %s (%s), using defaults", self._path, error)
+                logger.warning(f"Could not read settings from {self._path} ({error}), using defaults")
 
     def save(self):
         """Persist current settings to disk, Returns True on success"""
@@ -103,10 +103,10 @@ class SettingsStore:
                 os.replace(tmp_path, self._path)
                 return True
             except OSError as error:
-                logger.error("Could not save settings to %s: %s", self._path, error)
+                logger.error(f"Could not save settings to {self._path}: {error}")
                 return False
 
-    # --------------------------- access ---------------------------
+    # access
 
     def get(self):
         """Return a deep copy of the current settings"""

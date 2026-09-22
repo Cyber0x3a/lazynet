@@ -6,7 +6,6 @@ one JSON object per line, UTF-8
 
 import json
 import os
-import socket
 
 DEFAULT_TOKEN = "lazynet-dev"
 DEFAULT_CMD_PORT = 7737
@@ -82,11 +81,3 @@ def error_response(request_id, message):
 def push_message(msg_type, data):
     return {"type": msg_type, "data": data}
 
-
-def make_server_socket(port, backlog=8):
-    """Create a bound+listening loopback TCP socket with SO_REUSEADDR"""
-    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    srv.bind((HOST, port))
-    srv.listen(backlog)
-    return srv

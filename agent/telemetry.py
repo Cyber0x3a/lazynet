@@ -30,7 +30,7 @@ PROTO_KEYS = ("tcp", "udp", "dns", "icmp", "arp", "other")
 
 EVENT_LEVELS = ("info", "success", "warn", "error")
 
-# Give up on the capture thread after this many consecutive sniff errors.
+# Give up on the capture thread after this many consecutive sniff errors
 _MAX_CAPTURE_ERRORS = 5
 
 
@@ -68,7 +68,7 @@ class TelemetryCollector:
         pending.update({"packets": 0, "bytes": 0, "poison_bursts": 0})
         return pending
 
-    # ------------------------- listener wiring -------------------------
+    # listener wiring
 
     def add_listener(self, channel, callback):
         """Register a callback for 'metrics' (MetricTick) or 'event' (EventRow)."""
@@ -84,9 +84,9 @@ class TelemetryCollector:
             try:
                 callback(payload)
             except Exception:
-                logger.exception("telemetry %s listener failed", channel)
+                logger.exception(f"telemetry {channel} listener failed")
 
-    # --------------------------- lifecycle ---------------------------
+    # lifecycle
 
     def start(self):
         """Start the 1s sampler thread"""
@@ -99,7 +99,7 @@ class TelemetryCollector:
                 if counters is not None:
                     self._last_counters = (counters.bytes_recv, counters.bytes_sent)
             except Exception as error:
-                logger.warning("net_io_counters unavailable: %s", error)
+                logger.warning(f"net_io_counters unavailable: {error}")
             self._sampler_thread = threading.Thread(
                 target=self._sampler_loop,
                 name="telemetry-sampler",
@@ -116,7 +116,7 @@ class TelemetryCollector:
             thread.join(timeout=3)
         with self._lock:
             self._sampler_thread = None
-    # ------------------------- 1s metric sampler -------------------------
+    # 1s metric sampler
 
     def _sampler_loop(self):
         next_tick = time.monotonic()
@@ -138,7 +138,7 @@ class TelemetryCollector:
             if counters is not None:
                 rx, tx = counters.bytes_recv, counters.bytes_sent
         except Exception as error:
-            logger.debug("net_io_counters failed: %s", error)
+            logger.debug(f"net_io_counters failed: {error}")
 
         with self._lock:
             if self._last_counters is None:
@@ -165,7 +165,7 @@ class TelemetryCollector:
             self._ticks.append(tick)
             return tick
 
-    # --------------------------- packet capture ---------------------------
+    # packet capture
 
     def start_capture(self, target_ip, gateway_ip, interface, attacker_mac):
         """Start the scapy sniff thread for a running session."""
@@ -191,7 +191,7 @@ class TelemetryCollector:
             daemon=True,
         )
         self._capture_thread.start()
-        logger.info("capture started on %s (filter: %s)", interface, bpf)
+        logger.info(f"capture started on {interface} (filter: {bpf})")
 
     def stop_capture(self):
         """Stop the sniff thread (idempotent, safe from any thread)"""
@@ -221,7 +221,7 @@ class TelemetryCollector:
                 consecutive_errors = 0
             except Exception as error:
                 consecutive_errors += 1
-                logger.error("capture error: %s", error)
+                logger.error(f"capture error: {error}")
                 self.log_event("error", "telemetry.capture", f"Packet capture error: {error}")
                 if consecutive_errors >= _MAX_CAPTURE_ERRORS:
                     self.log_event(
@@ -275,7 +275,7 @@ class TelemetryCollector:
             if is_poison:
                 self._pending["poison_bursts"] += 1
 
-    # ------------------------- packet classification -------------------------
+    # packet classification
 
     def _classify(self, packet):
         """Return (proto, src, dst, info) for a scapy packet"""
@@ -322,7 +322,7 @@ class TelemetryCollector:
             return f"DNS {kind} {name}".strip()
         except Exception:
             return fallback
-    # ------------------------------ queries ------------------------------
+    # queries
 
     def snapshot(self, seconds=None):
         """MetricTick series (optionally only the last seconds) + latest tick"""
@@ -387,7 +387,7 @@ class TelemetryCollector:
         with self._lock:
             return self._poison_bursts_total
 
-    # ------------------------------ events ------------------------------
+    # events
 
     def log_event(self, level, kind, message):
         """Append an EventRow and push it to stream subscribers"""
@@ -401,7 +401,7 @@ class TelemetryCollector:
         self._emit("event", row)
         return row
 
-    # --------------------------- reconfiguration ---------------------------
+    # reconfiguration
 
     def apply_limits(self, retention_s=None, packet_log_max=None, event_log_max=None):
         """Resize the ring buffers, keeping the most recent entries"""

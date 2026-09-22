@@ -6,6 +6,7 @@ collector and the session manager, then idles until SIGINT/SIGTERM
 
 import argparse
 import logging
+import os
 import signal
 import sys
 import threading
@@ -61,7 +62,7 @@ def configure_logging(level):
     )
 
 
-def _start_with_retry(server, name, attempts=20, delay=0.4):
+def start_with_retry(server, name, attempts=20, delay=0.4):
     """Start a server, retrying when the port is still busy.
 
     With allow_reuse_address=False a bind fails while the previous instance's
@@ -92,7 +93,7 @@ def main(argv=None):
     )
     token = protocol.resolve_token(args.token)
 
-    # ------------------------- build services -------------------------
+    # build services
     settings = SettingsStore()
     telemetry_cfg = settings.section("telemetry")
     telemetry = TelemetryCollector(
@@ -107,37 +108,35 @@ def main(argv=None):
 
     command_server = CommandServer(cmd_port, token, context)
     stream_server = StreamServer(
-        stream_port, token, status_provider=lambda: command_server._cmd_status({})
+        stream_port, token, status_provider=lambda: command_server.cmd_status({})
     )
 
-    # ------------------------- wiring -------------------------
+    # wiring
     telemetry.add_listener("metrics", stream_server.broadcast_metrics)
     telemetry.add_listener("event", stream_server.broadcast_event)
     session.add_listener(stream_server.broadcast_session)
     forwarding.set_broadcaster(stream_server.broadcast_forwarding)
 
-    # ------------------------- run -------------------------
+    # run
     shutdown_event = threading.Event()
 
     def request_shutdown(signum=None, frame=None):
-        if not shutdown_event.is_set():
-            logger.info("shutdown requested%s", f" (signal {signum})" if signum else "")
-            shutdown_event.set()
-
-    signal.signal(signal.SIGINT, request_shutdown)
-    signal.signal(signal.SIGTERM, request_shutdown)
+        if shutdown_event.is_set():
+            return
+        suffix = f" signal {signum}" if signum else ""
+        logger.info(f"shutdown requested{suffix}")
+        shutdown_event.set()
 
     try:
         telemetry.start()
-        _start_with_retry(command_server, "command")
-        _start_with_retry(stream_server, "stream")
-        # Enable IP forwarding up front when safety.auto_forwarding is on
-        # (failures are logged as warn events inside the manager)
+        start_with_retry(command_server, "command")
+        start_with_retry(stream_server, "stream")
+        # enable IP forwarding up front when auto_forwarding is on
         forwarding.on_startup()
-        # Let RPC "agent.shutdown" trigger the same clean path as SIGINT
+        # let RPC agent.shutdown trigger the same clean path as SIGINT
         context.request_shutdown = request_shutdown
     except Exception as error:
-        logger.error("failed to start agent: %s", error)
+        logger.error(f"failed to start agent: {error}")
         telemetry.stop()
         command_server.stop()
         stream_server.stop()
@@ -149,26 +148,19 @@ def main(argv=None):
         f"LazyNet agent started (cmd={protocol.HOST}:{cmd_port}, "
         f"stream={protocol.HOST}:{stream_port})",
     )
-    logger.info(
-        "agent ready: cmd=%s:%s stream=%s:%s pid=%s",
-        protocol.HOST, cmd_port, protocol.HOST, stream_port,
-        __import__("os").getpid(),
-    )
+    logger.info(f"agent ready: cmd={protocol.HOST}:{cmd_port} stream={protocol.HOST}:{stream_port} pid={os.getpid()}")
 
     # Idle until a signal arrives
     shutdown_event.wait()
 
-    # ------------------------- shutdown -------------------------
+    # shutdown
     logger.info("shutting down...")
     try:
-        if session.is_running():
-            session.stop()
-        else:
-            session.stop()  # no-op when idle, keeps logic simple
+        session.stop()  # no-op when idle
     except Exception:
         logger.exception("error stopping session during shutdown")
     telemetry.log_event("info", "agent.stop", "LazyNet agent shutting down")
-    # Undo IP forwarding only if the agent itself enabled it
+    # undo IP forwarding only if the agent itself enabled it
     try:
         forwarding.shutdown()
     except Exception:
